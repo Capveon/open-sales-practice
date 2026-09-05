@@ -55,6 +55,7 @@ export function CallSession({ id }: { id: string }) {
   const roomRef = useRef<Room | null>(null);
   const hungRef = useRef(false);
   const mutedRef = useRef(false);
+  const hangupRef = useRef<() => void>(() => undefined);
   const transcriptRef = useRef<TranscriptTurn[]>([]);
   const seenSegments = useRef(new Set<string>());
 
@@ -142,6 +143,9 @@ export function CallSession({ id }: { id: string }) {
           else if (cue === "thinking") setCallPhase("thinking");
           else setCallPhase("listening");
         },
+        onRemoteHangup: () => {
+          hangupRef.current();
+        },
       });
       if (!alive) {
         room.disconnect();
@@ -204,6 +208,10 @@ export function CallSession({ id }: { id: string }) {
       setCallPhase("listening");
     }
   }, [id, router]);
+
+  hangupRef.current = () => {
+    void hangup();
+  };
 
   useEffect(() => {
     if (!call) return;

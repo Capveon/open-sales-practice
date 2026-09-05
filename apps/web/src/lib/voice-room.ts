@@ -21,6 +21,7 @@ type TranscriptionHandler = {
   onInterim: (line: LiveLine) => void;
   onFinal: (turn: TranscriptTurn, segmentId: string) => void;
   onCue: (cue: AgentCue) => void;
+  onRemoteHangup: () => void;
 };
 
 function roleFor(identity: string, localIdentity: string): TranscriptTurn["role"] {
@@ -103,6 +104,20 @@ export async function connectVoiceRoom(
     const local = room.localParticipant.identity;
     const other = speakers.find((s) => s.identity !== local);
     if (other) handlers.onCue("speaking");
+  });
+
+  let heardBuyer = room.remoteParticipants.size > 0;
+  const maybeRemoteHangup = () => {
+    if (!heardBuyer) return;
+    if (room.remoteParticipants.size > 0) return;
+    handlers.onRemoteHangup();
+  };
+  room.on(RoomEvent.ParticipantConnected, () => {
+    heardBuyer = true;
+  });
+  room.on(RoomEvent.ParticipantDisconnected, maybeRemoteHangup);
+  room.on(RoomEvent.Disconnected, () => {
+    if (heardBuyer) handlers.onRemoteHangup();
   });
 
   await room.connect(creds.url, creds.token, { autoSubscribe: true });

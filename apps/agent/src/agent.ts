@@ -5,6 +5,8 @@ import {
   ServerOptions,
   cli,
   defineAgent,
+  getJobContext,
+  llm,
   voice,
 } from "@livekit/agents";
 import * as openai from "@livekit/agents-plugin-openai";
@@ -44,6 +46,21 @@ function metaFrom(ctx: JobContext): RoomMeta {
   return { ...assigned, ...room, ...job };
 }
 
+const hangUp = llm.tool({
+  description:
+    "End the phone call. Use this when you are done talking: you said you have to go, they ignored a no, they kept pitching, or the call is over. Say a short closer first, then call this.",
+  execute: async (_args, { ctx }) => {
+    await ctx.waitForPlayout().catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await getJobContext().deleteRoom();
+    } catch {
+      await ctx.session.shutdown();
+    }
+    return "hung up";
+  },
+});
+
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     await ctx.connect();
@@ -71,7 +88,10 @@ export default defineAgent({
     });
 
     await session.start({
-      agent: voice.Agent.create({ instructions }),
+      agent: voice.Agent.create({
+        instructions,
+        tools: { hang_up: hangUp },
+      }),
       room: ctx.room,
       inputOptions: {
         textEnabled: true,
