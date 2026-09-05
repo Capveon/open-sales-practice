@@ -6,16 +6,15 @@ Copy `.env.example` to `apps/web/.env.local`. Do not commit that file.
 
 ## Clerk
 
-Optional. Dedicated Clerk app, not a customer product instance.
+Required. Dedicated Clerk app. Development instance on your laptop, Production instance on the host.
 
 ```
-OSP_AUTH=clerk
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 OSP_ALLOWED_EMAIL_DOMAIN=yourcompany.com
 ```
 
-Point Clerk origins at the deploy host.
+Point Clerk allowed origins at the deploy host.
 
 ## OpenAI
 

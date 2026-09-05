@@ -5,7 +5,6 @@ import { publicBrand } from "@/lib/brand";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Shell } from "@/components/shell";
-import { clerkConfigured } from "@/lib/flags";
 import "../styles/tokens.css";
 import "../styles/site.css";
 import "../styles/base.css";
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
 };
 
 function withClerk(node: React.ReactNode) {
-  return clerkConfigured() ? <ClerkProvider>{node}</ClerkProvider> : node;
+  return <ClerkProvider>{node}</ClerkProvider>;
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

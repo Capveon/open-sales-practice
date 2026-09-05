@@ -15,8 +15,6 @@ export function voiceMode(env: NodeJS.ProcessEnv = process.env): "mock" | "voice
   return env.OSP_VOICE_MODE === "voice" ? "voice" : "mock";
 }
 
-export function authMode(env: NodeJS.ProcessEnv = process.env): "none" | "clerk" {
-  if (env.OSP_AUTH === "clerk") return "clerk";
-  if (env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() && env.OSP_AUTH !== "none") return "clerk";
-  return "none";
+export function authMode(_env: NodeJS.ProcessEnv = process.env): "clerk" {
+  return "clerk";
 }

@@ -12,4 +12,4 @@ if (!existsSync(dest)) {
 } else {
   console.log("apps/web/.env.local already exists");
 }
-console.log("next: set OPENAI_API_KEY in apps/web/.env.local, then pnpm install && pnpm dev");
+console.log("next: set OPENAI_API_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, and CLERK_SECRET_KEY in apps/web/.env.local, then pnpm install && pnpm dev");

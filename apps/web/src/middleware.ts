@@ -1,14 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse, type NextRequest } from "next/server";
-
-function clerkConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim()) &&
-    process.env.OSP_AUTH !== "none";
-}
+import { NextResponse } from "next/server";
 
 const isPublic = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
-const clerkGate = clerkMiddleware(async (auth, req) => {
+export default clerkMiddleware(async (auth, req) => {
   if (isPublic(req)) return;
   if (req.nextUrl.pathname.startsWith("/api")) {
     const { userId } = await auth();
@@ -18,16 +13,9 @@ const clerkGate = clerkMiddleware(async (auth, req) => {
   await auth.protect();
 });
 
-export default function middleware(req: NextRequest, event: unknown) {
-  if (!clerkConfigured()) return NextResponse.next();
-  return (clerkGate as (r: NextRequest, e: unknown) => NextResponse | Promise<Response>)(
-    req,
-    event,
-  );
-}
-
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|woff2?)$).*)",
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
   ],
 };

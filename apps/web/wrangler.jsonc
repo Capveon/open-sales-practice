@@ -14,7 +14,7 @@
   // Bind Hyperdrive in a private overlay (not committed) when deploying to Workers.
   // Example: "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<config id>" }]
   "vars": {
-    "OSP_AUTH": "none",
+    "OSP_AUTH": "clerk",
     "OSP_VOICE_MODE": "mock",
     "OSP_DB_SCHEMA": "osp",
     "OSP_APP_NAME": "Open Sales Practice",

@@ -7,8 +7,8 @@ Web is Next.js. It needs a Node server (or a Workers adapter) and a database.
 Minimum for the in-browser phone:
 
 - `OPENAI_API_KEY`
+- Clerk keys (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`)
 - `ELEVENLABS_API_KEY` (optional, better voice)
-- `OSP_AUTH=none` or Clerk keys with `OSP_AUTH=clerk`
 - `DATABASE_URL` (SQLite file, Turso/libsql, or Postgres)
 
 Do not put keys in git. Use the host secret store.
@@ -62,7 +62,11 @@ Company buyers go in `profiles/private` on the machine that builds, or `OSP_EXTR
 
 ## Clerk
 
-Dedicated Clerk application. Allowlist the company domain. Set `OSP_ALLOWED_EMAIL_DOMAIN` as a second check.
+Required. Dedicated Clerk application, not a customer product instance.
+
+Development keys locally (`pk_test_`, `sk_test_`). Production keys on the host (`pk_live_`, `sk_live_`). Bake `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` at **build** time. Set `CLERK_SECRET_KEY` as a host secret.
+
+Add the deploy origin in the Clerk Dashboard (e.g. `https://practice.example.com`). Optional second check: `OSP_ALLOWED_EMAIL_DOMAIN`.
 
 ## LiveKit
 

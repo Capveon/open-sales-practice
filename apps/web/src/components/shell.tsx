@@ -38,7 +38,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       .catch(() => setMe(null));
   }, [pathname, liveCall]);
 
-  const clerk = me?.settings.auth === "clerk";
   const name = me?.settings.appName || brand.appName;
 
   if (liveCall) {
@@ -68,7 +67,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="nav__right">
             {me ? <span className="nav__meta">{me.user.name}</span> : null}
-            {clerk ? <UserButton /> : null}
+            <UserButton />
           </div>
         </div>
       </header>

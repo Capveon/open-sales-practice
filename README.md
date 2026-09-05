@@ -9,7 +9,8 @@ Same shape as the "talk to the partner" sims: a live conversation against a pers
 ```bash
 pnpm install
 node scripts/setup.mjs
-# put OPENAI_API_KEY in apps/web/.env.local
+# put OPENAI_API_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, and CLERK_SECRET_KEY
+# in apps/web/.env.local
 # ELEVENLABS_API_KEY is optional and sounds better
 pnpm dev
 ```
@@ -28,7 +29,7 @@ You need Node 20+ and pnpm 9.
 | Debrief | Score, transcript, and the recording if clips were saved. |
 | Leaderboard | Filter by window, pack, buyer. Click a recent tape to open it. |
 
-Clerk is optional. `OSP_AUTH=none` is the local default.
+Clerk is required. Local uses a Clerk **Development** instance. Production uses the **Production** instance.
 
 ## Profiles
 
