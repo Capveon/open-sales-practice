@@ -36,7 +36,15 @@ pnpm cf:deploy
 
 Set secrets with `wrangler secret put OPENAI_API_KEY` (and the rest). Bind a custom domain in the Cloudflare dashboard (`practice.example.com`).
 
-Postgres on Workers: use the session pooler (IPv4), `sslmode=require`, `prepare=false` (already set). If the Worker cannot reach the DB, run the Next server on Fly/Railway and CNAME the hostname through Cloudflare instead.
+Postgres on Workers: bind Hyperdrive (`HYPERDRIVE`) or set `DATABASE_URL` as a Worker secret. Hyperdrive should point at the Postgres **session** pooler (port 5432 on Supabase), not the transaction pooler. Caching should be off (`--caching-disabled`) because call rows change constantly.
+
+```bash
+wrangler hyperdrive create osp-prod --caching-disabled --connection-string="$DATABASE_URL"
+```
+
+Put the printed id into a private `apps/web/wrangler.capveon.jsonc` (gitignored) and deploy with `opennextjs-cloudflare deploy -c wrangler.capveon.jsonc`. If the Worker still cannot reach the DB, run the Next server on Fly/Railway and CNAME the hostname through Cloudflare instead.
+
+Brand `NEXT_PUBLIC_*` at **build** time. Wrangler `vars` only cover runtime names like `OSP_APP_NAME`.
 
 ## Branding for a private deploy
 

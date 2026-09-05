@@ -11,6 +11,8 @@
   "observability": {
     "enabled": true
   },
+  // Bind Hyperdrive in a private overlay (not committed) when deploying to Workers.
+  // Example: "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<config id>" }]
   "vars": {
     "OSP_AUTH": "none",
     "OSP_VOICE_MODE": "mock",

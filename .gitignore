@@ -4,6 +4,7 @@ node_modules
 .wrangler
 apps/web/profiles
 .open-next
+apps/web/wrangler.capveon.jsonc
 dist
 coverage
 *.log

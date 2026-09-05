@@ -73,20 +73,47 @@ CREATE INDEX IF NOT EXISTS calls_started ON calls(started_at);
 CREATE INDEX IF NOT EXISTS clips_call ON call_clips(call_id, seq);
 `;
 
-function runtimeUrl(): string {
-  return process.env.DATABASE_URL ?? "file:./data/osp.sqlite";
-}
+let cachedRuntimeUrl: string | undefined;
 
-function adminUrl(): string {
-  return process.env.DATABASE_ADMIN_URL?.trim() || runtimeUrl();
-}
-
-export function isPostgres(url = runtimeUrl()): boolean {
+function usesPostgres(url: string): boolean {
   return /^(postgres|postgresql):\/\//.test(url);
 }
 
+async function hyperdriveUrl(): Promise<string | undefined> {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const { env } = await getCloudflareContext({ async: true });
+    const hd = (env as { HYPERDRIVE?: { connectionString?: string } }).HYPERDRIVE;
+    return hd?.connectionString;
+  } catch {
+    return undefined;
+  }
+}
+
+async function resolveRuntimeUrl(): Promise<string> {
+  if (cachedRuntimeUrl) return cachedRuntimeUrl;
+  const fromEnv = process.env.DATABASE_URL?.trim();
+  if (fromEnv) {
+    cachedRuntimeUrl = fromEnv;
+    return fromEnv;
+  }
+  const fromHd = await hyperdriveUrl();
+  cachedRuntimeUrl = fromHd ?? "file:./data/osp.sqlite";
+  return cachedRuntimeUrl;
+}
+
+function adminUrl(): string {
+  return process.env.DATABASE_ADMIN_URL?.trim() || cachedRuntimeUrl || process.env.DATABASE_URL || "";
+}
+
+export function isPostgres(url?: string): boolean {
+  return usesPostgres(url ?? cachedRuntimeUrl ?? process.env.DATABASE_URL ?? "");
+}
+
 export function dbSchema(): string {
-  if (!isPostgres()) return "";
+  const url = cachedRuntimeUrl ?? process.env.DATABASE_URL ?? "";
+  if (url.startsWith("file:")) return "";
+  if (url && !usesPostgres(url)) return "";
   return process.env.OSP_DB_SCHEMA?.trim() || "osp";
 }
 
@@ -129,6 +156,7 @@ function sslFor(url: string) {
       return { rejectUnauthorized: false };
     }
     if (host === "localhost" || host === "127.0.0.1") return false;
+    if (host.includes("hyperdrive") || host.endsWith(".hyperdrive.local")) return false;
     return { rejectUnauthorized: false };
   } catch {
     return false;
@@ -150,9 +178,8 @@ let sqlite: Client | null = null;
 let pg: Sql | null = null;
 let pgAdmin: Sql | null = null;
 
-function sqliteClient(): Client {
+function sqliteClient(url: string): Client {
   if (sqlite) return sqlite;
-  const url = runtimeUrl();
   const file = resolve(process.cwd(), url.slice("file:".length).replace(/^\.\//, ""));
   mkdirSync(dirname(file), { recursive: true });
   sqlite = createClient({ url: `file:${file}` });
@@ -164,8 +191,9 @@ function pgClient(url: string, cache: "runtime" | "admin"): Sql {
   if (cache === "admin" && pgAdmin) return pgAdmin;
   const sql = postgres(stripSslMode(url), {
     ssl: sslFor(url),
-    max: 4,
+    max: 5,
     prepare: false,
+    fetch_types: false,
   });
   if (cache === "runtime") pg = sql;
   else pgAdmin = sql;
@@ -173,16 +201,17 @@ function pgClient(url: string, cache: "runtime" | "admin"): Sql {
 }
 
 export async function execute(query: { sql: string; args?: unknown[] }): Promise<QueryResult> {
+  const url = await resolveRuntimeUrl();
   const sql = qualify(query.sql);
   const args = (query.args ?? []).map((a) => (a instanceof Uint8Array ? Buffer.from(a) : a));
-  if (!isPostgres()) {
-    const result = await sqliteClient().execute({
+  if (!usesPostgres(url)) {
+    const result = await sqliteClient(url).execute({
       sql,
       args: args as InValue[],
     });
     return { rows: result.rows as unknown as Record<string, unknown>[] };
   }
-  const rows = await pgClient(runtimeUrl(), "runtime").unsafe(toPgPlaceholders(sql), args as never[]);
+  const rows = await pgClient(url, "runtime").unsafe(toPgPlaceholders(sql), args as never[]);
   return { rows: rows as unknown as Record<string, unknown>[] };
 }
 
@@ -244,12 +273,13 @@ export async function closeDb() {
 }
 
 export async function migrate() {
-  if (!isPostgres()) {
-    await sqliteClient().executeMultiple(SQLITE_DDL);
+  const url = await resolveRuntimeUrl();
+  if (!usesPostgres(url)) {
+    await sqliteClient(url).executeMultiple(SQLITE_DDL);
     return;
   }
   const schema = dbSchema() || "osp";
-  const admin = pgClient(adminUrl(), "admin");
+  const admin = pgClient(adminUrl() || url, "admin");
   await admin.unsafe(postgresDdl(schema));
   try {
     const q = `"${schema.replace(/"/g, "")}"`;

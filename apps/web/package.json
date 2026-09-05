@@ -8,8 +8,8 @@
     "build": "next build",
     "start": "next start --port 3100",
     "db:migrate": "tsx src/scripts/migrate.ts",
-    "cf:build": "tsx ../../packages/core/src/scripts/write-bundle.ts && opennextjs-cloudflare build",
-    "cf:deploy": "tsx ../../packages/core/src/scripts/write-bundle.ts && opennextjs-cloudflare deploy",
+    "cf:build": "tsx ../../packages/core/src/scripts/write-bundle.ts && OSP_CF_BUILD=1 opennextjs-cloudflare build",
+    "cf:deploy": "tsx ../../packages/core/src/scripts/write-bundle.ts && OSP_CF_BUILD=1 opennextjs-cloudflare deploy",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
