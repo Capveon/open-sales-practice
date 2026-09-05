@@ -11,7 +11,9 @@ pnpm install
 node scripts/setup.mjs
 # put OPENAI_API_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, and CLERK_SECRET_KEY
 # in apps/web/.env.local
-# ELEVENLABS_API_KEY is optional and sounds better
+# For real-time voice: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, OSP_VOICE_MODE=voice
+# and run the agent: pnpm --filter @osp/agent dev
+# ELEVENLABS_API_KEY is only used by mock mode
 pnpm dev
 ```
 
@@ -24,8 +26,8 @@ You need Node 20+ and pnpm 9.
 | Piece | Why it exists |
 |---|---|
 | YAML buyers | New persona = new file. No dashboard. |
-| In-browser phone | Mock mode. You talk, an LLM buyer talks back, ElevenLabs (or OpenAI TTS) speaks. |
-| LiveKit path | Optional. Real-time voice when you set `OSP_VOICE_MODE=voice`. |
+| In-browser phone | LiveKit + OpenAI Realtime when `OSP_VOICE_MODE=voice`. Mock (Whisper + chat) if LiveKit keys are missing. |
+| LiveKit agent | `apps/agent`. Deploy with `lk agent deploy`. |
 | Debrief | Score, transcript, and the recording if clips were saved. |
 | Leaderboard | Filter by window, pack, buyer. Click a recent tape to open it. |
 

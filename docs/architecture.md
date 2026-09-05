@@ -4,16 +4,18 @@
 browser  --WebRTC-->  LiveKit room  <--agent--  OpenAI Realtime
    |                       ^
    |                       | room metadata: profileId + personality
-   +-- HTTP --> Next.js (Clerk, transcript, score, leaderboard)
+   +-- HTTP --> Next.js (Clerk, hangup, score, leaderboard)
                     |
                     +-- @osp/core (YAML profiles, prompts, rubric)
 ```
 
-Mock mode skips LiveKit. The same profile prompt drives an LLM buyer (OpenAI chat). Spoken audio is ElevenLabs or OpenAI TTS, played in the handset — not `speechSynthesis`.
+Voice mode is LiveKit + OpenAI Realtime. The browser publishes mic audio and subscribes to the buyer; live captions arrive on the `lk.transcription` text stream. Typed lines go to the agent on `lk.chat`.
+
+Mock mode is the fallback when LiveKit keys are missing: one utterance at a time through Whisper and chat completions. Do not use it for the hosted practice product.
 
 ## Why LiveKit (not a raw websocket)
 
-The YC-style Garry Tan practice tools are live voice with interruption. LiveKit Agents + OpenAI Realtime is the current low-latency path: WebRTC to the browser, Realtime API on the agent, barge-in handled for you. Pipecat is a fine alternative if you want Python pipelines; the profile layer here does not care.
+The YC-style practice tools are live voice with interruption. LiveKit Agents + OpenAI Realtime is the current low-latency path: WebRTC to the browser, Realtime API on the agent, barge-in handled for you. Pipecat is a fine alternative if you want Python pipelines; the profile layer here does not care.
 
 ## Extensibility
 

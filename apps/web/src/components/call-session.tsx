@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Room, RoomEvent, Track } from "livekit-client";
+import type { Room } from "livekit-client";
 import { openMic, similarUtterance, startUtteranceLoop, type MicHandle } from "@/lib/mic";
 import {
   attachPlayer,
@@ -12,6 +12,13 @@ import {
   stopPlayback,
   unlockPlayback,
 } from "@/lib/playback";
+import {
+  connectVoiceRoom,
+  sendChatToAgent,
+  type AgentCue,
+  type LiveKitCreds,
+  type LiveLine,
+} from "@/lib/voice-room";
 import type { TranscriptTurn } from "@osp/core";
 
 type CallPayload = {
@@ -77,7 +84,9 @@ export function CallSession({ id }: { id: string }) {
   const [muted, setMuted] = useState(false);
   const [phase, setPhase] = useState<Phase>("connecting");
   const [elapsed, setElapsed] = useState(0);
-  const [interim, setInterim] = useState("");
+  const [draft, setDraft] = useState("");
+  const [sellerLive, setSellerLive] = useState<LiveLine | null>(null);
+  const [buyerLive, setBuyerLive] = useState<LiveLine | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const roomRef = useRef<Room | null>(null);
   const micRef = useRef<MicHandle | null>(null);
@@ -89,6 +98,7 @@ export function CallSession({ id }: { id: string }) {
   const mockRef = useRef(false);
   const lastBuyerRef = useRef("");
   const transcriptRef = useRef<TranscriptTurn[]>([]);
+  const seenSegments = useRef(new Set<string>());
   const clipSeq = useRef(0);
   const applyCallRef = useRef<(next: CallPayload) => void>(() => {});
   const playBuyerRef = useRef<(line: { text: string; audio?: { mime: string; base64: string } | null }) => Promise<void>>(
@@ -106,6 +116,35 @@ export function CallSession({ id }: { id: string }) {
     lastBuyerRef.current = lastBuyerText(next.transcript ?? []);
   }, []);
   applyCallRef.current = applyCall;
+
+  const persistTranscript = useCallback(
+    (turns: TranscriptTurn[]) => {
+      void fetch(`/api/calls/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: turns }),
+      }).catch(() => undefined);
+    },
+    [id],
+  );
+
+  const pushTurn = useCallback(
+    (turn: TranscriptTurn, segmentId?: string) => {
+      if (segmentId) {
+        if (seenSegments.current.has(segmentId)) return;
+        seenSegments.current.add(segmentId);
+      }
+      const prev = transcriptRef.current;
+      const last = prev[prev.length - 1];
+      const nextTurns =
+        last && last.role === turn.role && last.text === turn.text ? prev : [...prev, turn];
+      transcriptRef.current = nextTurns;
+      lastBuyerRef.current = lastBuyerText(nextTurns);
+      setCall((cur) => (cur ? { ...cur, transcript: nextTurns } : cur));
+      persistTranscript(nextTurns);
+    },
+    [persistTranscript],
+  );
 
   const canListen = useCallback(() => {
     return (
@@ -175,7 +214,7 @@ export function CallSession({ id }: { id: string }) {
       if (!trimmed || busyRef.current || hungRef.current) return;
       if (similarUtterance(trimmed, lastBuyerRef.current)) return;
       busyRef.current = true;
-      setInterim("");
+      setSellerLive(null);
       setCallPhase("thinking");
       micRef.current?.setEarpiece(true);
       try {
@@ -210,7 +249,7 @@ export function CallSession({ id }: { id: string }) {
   const onUtterance = useCallback(
     async (blob: Blob) => {
       if (!canListen() || hungRef.current || busyRef.current) return;
-      setInterim("…");
+      setSellerLive({ role: "seller", text: "…", segmentId: "mock" });
       setCallPhase("thinking");
       micRef.current?.setEarpiece(true);
       try {
@@ -227,12 +266,14 @@ export function CallSession({ id }: { id: string }) {
         if (!res.ok) throw new Error(json.error ?? "Could not hear that.");
         const text = String(json.text ?? "").trim();
         if (!text || similarUtterance(text, lastBuyerRef.current)) {
+          setSellerLive(null);
           if (!hungRef.current) goListen();
           return;
         }
-        setInterim(text);
+        setSellerLive({ role: "seller", text, segmentId: "mock" });
         await sendUtterance(text);
       } catch (err) {
+        setSellerLive(null);
         if (!hungRef.current) {
           setError(err instanceof Error ? err.message : "Could not hear that.");
           goListen();
@@ -241,6 +282,18 @@ export function CallSession({ id }: { id: string }) {
     },
     [canListen, goListen, saveClip, sendUtterance],
   );
+
+  const sendTyped = useCallback(async () => {
+    const text = draft.trim();
+    if (!text || hungRef.current) return;
+    setDraft("");
+    if (roomRef.current) {
+      pushTurn({ role: "seller", text, at: Date.now() });
+      await sendChatToAgent(roomRef.current, text);
+      return;
+    }
+    await sendUtterance(text);
+  }, [draft, pushTurn, sendUtterance]);
 
   useEffect(() => {
     mutedRef.current = muted;
@@ -270,46 +323,41 @@ export function CallSession({ id }: { id: string }) {
         return;
       }
       mockRef.current = c.voiceMode !== "voice";
+
       if (c.voiceMode === "voice") {
-        const raw = sessionStorage.getItem(`osp:livekit:${id}`);
-        const lk = raw ? (JSON.parse(raw) as { url: string; token: string } | null) : null;
-        if (lk?.url && lk.token) {
-          const room = new Room();
-          roomRef.current = room;
-          await room.connect(lk.url, lk.token);
-          if (!alive) {
-            room.disconnect();
-            return;
-          }
-          await room.localParticipant.setMicrophoneEnabled(true);
-          const attach = (track: Track) => {
-            if (track.kind !== Track.Kind.Audio) return;
-            const el = track.attach();
-            el.autoplay = true;
-            document.body.appendChild(el);
-          };
-          room.remoteParticipants.forEach((p) => {
-            p.audioTrackPublications.forEach((pub) => {
-              if (pub.track) attach(pub.track);
-            });
-          });
-          room.on(RoomEvent.TrackSubscribed, (track) => attach(track));
-          room.on(RoomEvent.TranscriptionReceived, (segments) => {
-            const text = segments.map((s) => s.text).join(" ").trim();
-            if (!text) return;
-            setCall((cur) => {
-              if (!cur) return cur;
-              const last = cur.transcript[cur.transcript.length - 1];
-              const role: TranscriptTurn["role"] = last?.role === "seller" ? "seller" : "buyer";
-              const turn: TranscriptTurn = { role, text, at: Date.now() };
-              const next: CallPayload = { ...cur, transcript: [...cur.transcript, turn] };
-              transcriptRef.current = next.transcript;
-              lastBuyerRef.current = lastBuyerText(next.transcript);
-              return next;
-            });
-          });
-          setCallPhase("live");
+        const stored = sessionStorage.getItem(`osp:livekit:${id}`);
+        const fromStore = stored ? (JSON.parse(stored) as LiveKitCreds | null) : null;
+        const lk = (json.livekit as LiveKitCreds | null) ?? fromStore;
+        if (!lk?.url || !lk.token) {
+          throw new Error("LiveKit is not configured on this host. Voice calls cannot start.");
         }
+        sessionStorage.setItem(`osp:livekit:${id}`, JSON.stringify(lk));
+        await unlockPlayback().catch(() => undefined);
+        const room = await connectVoiceRoom(lk, {
+          onInterim: (line) => {
+            if (hungRef.current) return;
+            if (line.role === "seller") setSellerLive(line);
+            else setBuyerLive(line);
+          },
+          onFinal: (turn, segmentId) => {
+            if (hungRef.current) return;
+            if (turn.role === "seller") setSellerLive((cur) => (cur?.segmentId === segmentId ? null : cur));
+            else setBuyerLive((cur) => (cur?.segmentId === segmentId ? null : cur));
+            pushTurn(turn, segmentId);
+          },
+          onCue: (cue: AgentCue) => {
+            if (hungRef.current || mutedRef.current) return;
+            if (cue === "speaking") setCallPhase("speaking");
+            else if (cue === "thinking") setCallPhase("thinking");
+            else setCallPhase("listening");
+          },
+        });
+        if (!alive) {
+          room.disconnect();
+          return;
+        }
+        roomRef.current = room;
+        setCallPhase("listening");
         return;
       }
 
@@ -364,11 +412,11 @@ export function CallSession({ id }: { id: string }) {
       roomRef.current?.disconnect();
       roomRef.current = null;
     };
-  }, [applyCall, canListen, goListen, id, onUtterance, playBuyer, router]);
+  }, [applyCall, canListen, goListen, id, onUtterance, playBuyer, pushTurn, router]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
-  }, [call?.transcript.length, interim]);
+  }, [call?.transcript.length, sellerLive?.text, buyerLive?.text]);
 
   useEffect(() => {
     if (!call?.startedAt) return;
@@ -382,13 +430,15 @@ export function CallSession({ id }: { id: string }) {
     if (hungRef.current) return;
     hungRef.current = true;
     setCallPhase("hanging");
-    setInterim("");
+    setSellerLive(null);
+    setBuyerLive(null);
     stopPlayback();
     stopLoopRef.current?.();
     stopLoopRef.current = null;
     micRef.current?.stop();
     micRef.current = null;
     roomRef.current?.disconnect();
+    roomRef.current = null;
     try {
       const res = await fetch(`/api/calls/${id}/end`, {
         method: "POST",
@@ -424,13 +474,13 @@ export function CallSession({ id }: { id: string }) {
       await roomRef.current.localParticipant.setMicrophoneEnabled(!next);
     }
     if (next) {
-      setInterim("");
+      setSellerLive(null);
       setCallPhase("muted");
       micRef.current?.setEarpiece(true);
     } else if (mockRef.current && phaseRef.current !== "speaking" && phaseRef.current !== "thinking") {
       goListen();
     } else if (!mockRef.current) {
-      setCallPhase("live");
+      setCallPhase("listening");
     }
   };
 
@@ -471,6 +521,8 @@ export function CallSession({ id }: { id: string }) {
                 ? "Hanging up"
                 : "Live";
 
+  const buyerName = call.profile.name.split(" ")[0] ?? call.profile.name;
+
   return (
     <main className="phone">
       <header className="phone__status">
@@ -493,19 +545,25 @@ export function CallSession({ id }: { id: string }) {
       </section>
 
       <section className="phone__tape" ref={scroller} aria-label="Live transcript">
-        {call.transcript.length === 0 && !interim ? (
+        {call.transcript.length === 0 && !sellerLive && !buyerLive ? (
           <p className="phone__line phone__line--empty">Waiting for the first line…</p>
         ) : null}
         {call.transcript.map((t, i) => (
           <p key={`${t.at}-${i}`} className="phone__line" data-role={t.role}>
-            <span className="phone__who">{t.role === "buyer" ? call.profile.name.split(" ")[0] : "You"}</span>
+            <span className="phone__who">{t.role === "buyer" ? buyerName : "You"}</span>
             {t.text}
           </p>
         ))}
-        {interim ? (
+        {buyerLive ? (
+          <p className="phone__line" data-role="buyer" data-live="true">
+            <span className="phone__who">{buyerName}</span>
+            {buyerLive.text}
+          </p>
+        ) : null}
+        {sellerLive ? (
           <p className="phone__line" data-role="seller" data-live="true">
             <span className="phone__who">You</span>
-            {interim}
+            {sellerLive.text}
           </p>
         ) : null}
       </section>
@@ -517,6 +575,22 @@ export function CallSession({ id }: { id: string }) {
           playsInline
           autoPlay={false}
         />
+        <form
+          className="call-compose"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void sendTyped();
+          }}
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Type if you need to"
+            aria-label="Send a line"
+            disabled={phase === "hanging"}
+            autoComplete="off"
+          />
+        </form>
         <button
           type="button"
           className="phone-btn"

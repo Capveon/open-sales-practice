@@ -329,9 +329,15 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   padding-top: 20px;
   padding-bottom: 8px;
+}
+.phone__dock .call-compose {
+  flex: 1 1 100%;
+  order: -1;
+  margin: 0;
 }
 .phone__speaker {
   position: absolute;

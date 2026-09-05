@@ -68,6 +68,18 @@ Development keys locally (`pk_test_`, `sk_test_`). Production keys on the host (
 
 Add the deploy origin in the Clerk Dashboard (e.g. `https://practice.example.com`). Optional second check: `OSP_ALLOWED_EMAIL_DOMAIN`.
 
-## LiveKit
+# LiveKit
 
-Only if `OSP_VOICE_MODE=voice`. Run `apps/agent` as a second process. Mock mode does not need it.
+Required for real-time voice (`OSP_VOICE_MODE=voice`). Mock mode is the OSS fallback when these are unset.
+
+Create a LiveKit Cloud project, then:
+
+```
+LIVEKIT_URL=wss://<project>.livekit.cloud
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
+OSP_AGENT_NAME=open-sales-practice
+OSP_VOICE_MODE=voice
+```
+
+Set those on the web host. Deploy the agent with `lk agent create` / `lk agent deploy` from the repo root (needs `OPENAI_API_KEY` as an agent secret). The browser talks WebRTC to LiveKit; the agent talks to OpenAI Realtime. Do not run Whisper or chat-completions in the call loop when voice mode is on.

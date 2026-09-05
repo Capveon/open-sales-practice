@@ -23,15 +23,19 @@ export async function mintRoomToken(input: {
   if (!url || !key || !secret) throw new Error("LiveKit is not configured");
 
   const svc = new RoomServiceClient(httpHost(url), key, secret);
-  await svc.createRoom({
-    name: input.room,
-    metadata: input.metadata,
-    agents: [
-      new RoomAgentDispatch({
-        agentName: process.env.OSP_AGENT_NAME ?? "open-sales-practice",
-      }),
-    ],
-  });
+  try {
+    await svc.createRoom({
+      name: input.room,
+      metadata: input.metadata,
+      agents: [
+        new RoomAgentDispatch({
+          agentName: process.env.OSP_AGENT_NAME ?? "open-sales-practice",
+        }),
+      ],
+    });
+  } catch {
+    // Room already exists from the first dial. Token mint still works.
+  }
 
   const at = new AccessToken(key, secret, {
     identity: input.identity,

@@ -1,6 +1,6 @@
 # Keys
 
-Practice needs **OpenAI** for the buyer. **ElevenLabs** is the spoken voice you actually want. Nothing else is required for the in-browser phone (`OSP_VOICE_MODE=mock`).
+Practice needs **OpenAI** for the buyer. Real-time voice is **LiveKit + OpenAI Realtime**. Mock mode (Whisper + chat + ElevenLabs) is only the fallback when LiveKit is unset.
 
 Copy `.env.example` to `apps/web/.env.local`. Do not commit that file.
 
@@ -34,7 +34,14 @@ Profiles declare `cast.gender`, `cast.age`, `cast.region`. Seats live in `packag
 
 ## LiveKit
 
-Only for `OSP_VOICE_MODE=voice`. See [deployment.md](deployment.md).
+Required for `OSP_VOICE_MODE=voice`. See [deployment.md](deployment.md).
+
+```
+LIVEKIT_URL=wss://<project>.livekit.cloud
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
+OSP_VOICE_MODE=voice
+```
 
 ## Database
 

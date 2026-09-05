@@ -36,7 +36,6 @@ function parseMeta(raw: string | undefined): RoomMeta {
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
-    await ctx.connect();
     const meta = parseMeta(ctx.room.metadata);
     const profileId = meta.profileId;
     if (!profileId) {
@@ -45,20 +44,34 @@ export default defineAgent({
     const profile = getProfile(profileId);
     const personality = mergePersonality(profile.personality, meta.personality);
     const instructions = buildBuyerInstructions(profile, personality);
+    const voiceName = profile.voice || resolveVoice(profile).openai;
 
     const session = new voice.AgentSession({
       llm: new openai.realtime.RealtimeModel({
-        voice: profile.voice || resolveVoice(profile).openai,
+        voice: voiceName,
         model: process.env.OPENAI_REALTIME_MODEL || "gpt-realtime",
+        turnDetection: {
+          type: "semantic_vad",
+          eagerness: "medium",
+          create_response: true,
+          interrupt_response: true,
+        },
       }),
     });
 
-    const agent = voice.Agent.create({ instructions });
-
     await session.start({
-      agent,
+      agent: voice.Agent.create({ instructions }),
       room: ctx.room,
+      inputOptions: {
+        textEnabled: true,
+      },
+      outputOptions: {
+        transcriptionEnabled: true,
+        syncTranscription: true,
+      },
     });
+
+    await ctx.connect();
 
     await session.generateReply({
       instructions:
