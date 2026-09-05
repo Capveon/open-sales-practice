@@ -1,4 +1,10 @@
-import { CALL_MAX_SECONDS, type Profile, type TranscriptTurn } from "@osp/core";
+import {
+  CALL_MAX_SECONDS,
+  mergeTranscripts,
+  parseTranscriptJson,
+  type Profile,
+  type TranscriptTurn,
+} from "@osp/core";
 import { getProfile } from "@osp/core/registry";
 import { requireUser } from "@/lib/auth";
 import { asError } from "@/lib/api";
@@ -87,15 +93,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return Response.json({ error: "transcript required" }, { status: 400 });
     }
     const result = await db().execute({
-      sql: "SELECT user_id, status FROM calls WHERE id = ?",
+      sql: "SELECT user_id, status, transcript_json FROM calls WHERE id = ?",
       args: [id],
     });
-    const row = result.rows[0] as { user_id: string; status: string } | undefined;
+    const row = result.rows[0] as
+      | { user_id: string; status: string; transcript_json: string }
+      | undefined;
     if (!row || row.user_id !== user.id) return Response.json({ error: "Not found" }, { status: 404 });
     if (row.status !== "live") return Response.json({ error: "Call is not live" }, { status: 409 });
+    const turns = mergeTranscripts(parseTranscriptJson(row.transcript_json), body.transcript);
     await db().execute({
       sql: "UPDATE calls SET transcript_json = ? WHERE id = ? AND status = 'live'",
-      args: [JSON.stringify(body.transcript), id],
+      args: [JSON.stringify(turns), id],
     });
     return Response.json({ ok: true });
   } catch (err) {

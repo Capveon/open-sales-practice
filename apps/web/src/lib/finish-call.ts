@@ -1,4 +1,9 @@
-import { type Personality, type TranscriptTurn } from "@osp/core";
+import {
+  mergeTranscripts,
+  parseTranscriptJson,
+  type Personality,
+  type TranscriptTurn,
+} from "@osp/core";
 import { getProfile } from "@osp/core/registry";
 import { db, type CallRow } from "@/lib/db";
 import { scoreCall } from "@/lib/score";
@@ -27,7 +32,7 @@ export async function hangupCall(
   }
   if (row.status === "scored") return row;
 
-  const turns = Array.isArray(transcript) ? transcript : (JSON.parse(row.transcript_json) as TranscriptTurn[]);
+  const turns = mergeTranscripts(parseTranscriptJson(row.transcript_json), transcript ?? []);
   const ended_at = row.ended_at ?? Date.now();
   await db().execute({
     sql: `UPDATE calls
@@ -56,7 +61,7 @@ async function runScore(id: string, userId: string): Promise<CallRow> {
 
   const profile = getProfile(row.profile_id);
   const personality = JSON.parse(row.personality_json) as Personality;
-  const turns = JSON.parse(row.transcript_json) as TranscriptTurn[];
+  const turns = parseTranscriptJson(row.transcript_json);
   const score = await scoreCall(profile, turns, personality);
   const ended_at = row.ended_at ?? Date.now();
 
@@ -73,6 +78,7 @@ async function runScore(id: string, userId: string): Promise<CallRow> {
     ended_at,
     score_json: JSON.stringify(score),
     overall: score.overall,
+    transcript_json: JSON.stringify(turns),
   };
 }
 

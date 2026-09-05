@@ -16,7 +16,9 @@ export async function scoreCall(
 ): Promise<CallScore> {
   const fallback = heuristicScore(profile, turns, personality);
   const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key || turns.length === 0) return fallback;
+  if (!key) return fallback;
+  const hasSpeech = turns.some((turn) => turn.text.trim());
+  if (!hasSpeech) return fallback;
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

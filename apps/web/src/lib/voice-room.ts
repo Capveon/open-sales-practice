@@ -5,7 +5,12 @@ import {
   type RemoteTrack,
   type TextStreamReader,
 } from "livekit-client";
-import type { TranscriptTurn } from "@osp/core";
+import {
+  parseTranscriptionText,
+  parseTranscriptJson,
+  TRANSCRIPT_TOPIC,
+  type TranscriptTurn,
+} from "@osp/core";
 
 export type LiveKitCreds = { url: string; token: string };
 
@@ -15,17 +20,22 @@ export type LiveLine = {
   role: TranscriptTurn["role"];
   text: string;
   segmentId: string;
+  final: boolean;
 };
 
 type TranscriptionHandler = {
-  onInterim: (line: LiveLine) => void;
-  onFinal: (turn: TranscriptTurn, segmentId: string) => void;
+  onCaption: (line: LiveLine) => void;
+  onTape: (turns: TranscriptTurn[]) => void;
   onCue: (cue: AgentCue) => void;
   onRemoteHangup: () => void;
 };
 
 function roleFor(identity: string, localIdentity: string): TranscriptTurn["role"] {
   return identity === localIdentity || identity.startsWith("rep-") ? "seller" : "buyer";
+}
+
+function isFinalStream(attrs: Record<string, string>): boolean {
+  return String(attrs["lk.transcription_final"] ?? "").toLowerCase() === "true";
 }
 
 function attachRemoteAudio(track: RemoteTrack | Track) {
@@ -52,23 +62,30 @@ async function consumeTranscription(
   handlers: TranscriptionHandler,
 ) {
   const attrs = reader.info.attributes ?? {};
-  const isFinal = attrs["lk.transcription_final"] === "true";
-  const segmentId = attrs["lk.segment_id"] || reader.info.id;
+  const segmentId = attrs["lk.segment_id"] || `${identity}:${reader.info.id}`;
   const role = roleFor(identity, localIdentity);
+  const finalFromAttrs = isFinalStream(attrs);
 
-  if (isFinal) {
-    const text = (await reader.readAll()).trim();
+  if (finalFromAttrs) {
+    const text = parseTranscriptionText(await reader.readAll());
     if (!text) return;
-    handlers.onFinal({ role, text, at: Date.now() }, segmentId);
+    handlers.onCaption({ role, text, segmentId, final: true });
     return;
   }
 
-  let text = "";
+  let raw = "";
   for await (const chunk of reader) {
-    text += chunk;
-    const next = text.trim();
-    if (next) handlers.onInterim({ role, text: next, segmentId });
+    raw += chunk;
+    const text = parseTranscriptionText(raw);
+    if (text) handlers.onCaption({ role, text, segmentId, final: false });
   }
+  const text = parseTranscriptionText(raw);
+  if (text) handlers.onCaption({ role, text, segmentId, final: true });
+}
+
+async function consumeTape(reader: TextStreamReader, handlers: TranscriptionHandler) {
+  const turns = parseTranscriptJson(await reader.readAll());
+  if (turns.length) handlers.onTape(turns);
 }
 
 export async function connectVoiceRoom(
@@ -92,6 +109,9 @@ export async function connectVoiceRoom(
       () => undefined,
     );
   });
+  room.registerTextStreamHandler(TRANSCRIPT_TOPIC, (reader) => {
+    void consumeTape(reader, handlers).catch(() => undefined);
+  });
 
   room.on(RoomEvent.TrackSubscribed, (track) => {
     attachRemoteAudio(track);
@@ -107,18 +127,16 @@ export async function connectVoiceRoom(
   });
 
   let heardBuyer = room.remoteParticipants.size > 0;
-  const maybeRemoteHangup = () => {
-    if (!heardBuyer) return;
-    if (room.remoteParticipants.size > 0) return;
-    handlers.onRemoteHangup();
+  let hangupTimer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleRemoteHangup = () => {
+    if (!heardBuyer || hangupTimer) return;
+    hangupTimer = setTimeout(() => handlers.onRemoteHangup(), 700);
   };
   room.on(RoomEvent.ParticipantConnected, () => {
     heardBuyer = true;
   });
-  room.on(RoomEvent.ParticipantDisconnected, maybeRemoteHangup);
-  room.on(RoomEvent.Disconnected, () => {
-    if (heardBuyer) handlers.onRemoteHangup();
-  });
+  room.on(RoomEvent.ParticipantDisconnected, scheduleRemoteHangup);
+  room.on(RoomEvent.Disconnected, scheduleRemoteHangup);
 
   await room.connect(creds.url, creds.token, { autoSubscribe: true });
   await room.startAudio().catch(() => undefined);

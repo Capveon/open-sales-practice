@@ -4,13 +4,18 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Room } from "livekit-client";
 import {
+  commitLiveLines,
+  mergeTranscripts,
+  upsertSegment,
+  type TapeLine,
+  type TranscriptTurn,
+} from "@osp/core";
+import {
   connectVoiceRoom,
   sendChatToAgent,
   type AgentCue,
   type LiveKitCreds,
-  type LiveLine,
 } from "@/lib/voice-room";
-import type { TranscriptTurn } from "@osp/core";
 
 type CallPayload = {
   id: string;
@@ -49,15 +54,14 @@ export function CallSession({ id }: { id: string }) {
   const [phase, setPhase] = useState<Phase>("connecting");
   const [elapsed, setElapsed] = useState(0);
   const [draft, setDraft] = useState("");
-  const [sellerLive, setSellerLive] = useState<LiveLine | null>(null);
-  const [buyerLive, setBuyerLive] = useState<LiveLine | null>(null);
+  const [tape, setTape] = useState<TapeLine[]>([]);
   const scroller = useRef<HTMLDivElement>(null);
   const roomRef = useRef<Room | null>(null);
   const hungRef = useRef(false);
   const mutedRef = useRef(false);
   const hangupRef = useRef<() => void>(() => undefined);
-  const transcriptRef = useRef<TranscriptTurn[]>([]);
-  const seenSegments = useRef(new Set<string>());
+  const tapeRef = useRef<TapeLine[]>([]);
+  const agentTapeRef = useRef<TranscriptTurn[]>([]);
 
   const setCallPhase = (next: Phase) => setPhase(next);
 
@@ -72,19 +76,11 @@ export function CallSession({ id }: { id: string }) {
     [id],
   );
 
-  const pushTurn = useCallback(
-    (turn: TranscriptTurn, segmentId?: string) => {
-      if (segmentId) {
-        if (seenSegments.current.has(segmentId)) return;
-        seenSegments.current.add(segmentId);
-      }
-      const prev = transcriptRef.current;
-      const last = prev[prev.length - 1];
-      const nextTurns =
-        last && last.role === turn.role && last.text === turn.text ? prev : [...prev, turn];
-      transcriptRef.current = nextTurns;
-      setCall((cur) => (cur ? { ...cur, transcript: nextTurns } : cur));
-      persistTranscript(nextTurns);
+  const replaceTape = useCallback(
+    (next: TapeLine[]) => {
+      tapeRef.current = next;
+      setTape(next);
+      persistTranscript(mergeTranscripts(commitLiveLines(next), agentTapeRef.current));
     },
     [persistTranscript],
   );
@@ -93,9 +89,17 @@ export function CallSession({ id }: { id: string }) {
     const text = draft.trim();
     if (!text || hungRef.current || !roomRef.current) return;
     setDraft("");
-    pushTurn({ role: "seller", text, at: Date.now() });
+    replaceTape(
+      upsertSegment(tapeRef.current, {
+        role: "seller",
+        text,
+        at: Date.now(),
+        segmentId: `typed-${Date.now()}`,
+        live: false,
+      }),
+    );
     await sendChatToAgent(roomRef.current, text);
-  }, [draft, pushTurn]);
+  }, [draft, replaceTape]);
 
   useEffect(() => {
     mutedRef.current = muted;
@@ -113,7 +117,13 @@ export function CallSession({ id }: { id: string }) {
       if (typeof json.callMaxSeconds === "number") setMaxSeconds(json.callMaxSeconds);
       const c = json.call as CallPayload;
       setCall(c);
-      transcriptRef.current = c.transcript ?? [];
+      const seeded = (c.transcript ?? []).map((turn, index) => ({
+        ...turn,
+        segmentId: `seed-${index}`,
+        live: false,
+      }));
+      tapeRef.current = seeded;
+      setTape(seeded);
       if (c.status !== "live") {
         router.replace(`/call/${id}/debrief`);
         return;
@@ -126,16 +136,21 @@ export function CallSession({ id }: { id: string }) {
       }
       sessionStorage.setItem(`osp:livekit:${id}`, JSON.stringify(lk));
       const room = await connectVoiceRoom(lk, {
-        onInterim: (line) => {
+        onCaption: (line) => {
           if (hungRef.current) return;
-          if (line.role === "seller") setSellerLive(line);
-          else setBuyerLive(line);
+          replaceTape(
+            upsertSegment(tapeRef.current, {
+              role: line.role,
+              text: line.text,
+              at: Date.now(),
+              segmentId: line.segmentId,
+              live: !line.final,
+            }),
+          );
         },
-        onFinal: (turn, segmentId) => {
-          if (hungRef.current) return;
-          if (turn.role === "seller") setSellerLive((cur) => (cur?.segmentId === segmentId ? null : cur));
-          else setBuyerLive((cur) => (cur?.segmentId === segmentId ? null : cur));
-          pushTurn(turn, segmentId);
+        onTape: (turns) => {
+          agentTapeRef.current = mergeTranscripts(agentTapeRef.current, turns);
+          persistTranscript(mergeTranscripts(commitLiveLines(tapeRef.current), agentTapeRef.current));
         },
         onCue: (cue: AgentCue) => {
           if (hungRef.current || mutedRef.current) return;
@@ -166,11 +181,11 @@ export function CallSession({ id }: { id: string }) {
       roomRef.current?.disconnect();
       roomRef.current = null;
     };
-  }, [id, pushTurn, router]);
+  }, [id, persistTranscript, replaceTape, router]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
-  }, [call?.transcript.length, sellerLive?.text, buyerLive?.text]);
+  }, [tape]);
 
   useEffect(() => {
     if (!call?.startedAt) return;
@@ -184,15 +199,14 @@ export function CallSession({ id }: { id: string }) {
     if (hungRef.current) return;
     hungRef.current = true;
     setCallPhase("hanging");
-    setSellerLive(null);
-    setBuyerLive(null);
+    const turns = mergeTranscripts(commitLiveLines(tapeRef.current), agentTapeRef.current);
     roomRef.current?.disconnect();
     roomRef.current = null;
     try {
       const res = await fetch(`/api/calls/${id}/end`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: transcriptRef.current }),
+        body: JSON.stringify({ transcript: turns }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -281,27 +295,21 @@ export function CallSession({ id }: { id: string }) {
       </section>
 
       <section className="phone__tape" ref={scroller} aria-label="Live transcript">
-        {call.transcript.length === 0 && !sellerLive && !buyerLive ? (
+        {tape.length === 0 ? (
           <p className="phone__line phone__line--empty">Waiting for the first line…</p>
-        ) : null}
-        {call.transcript.map((t, i) => (
-          <p key={`${t.at}-${i}`} className="phone__line" data-role={t.role}>
-            <span className="phone__who">{t.role === "buyer" ? buyerName : "You"}</span>
-            {t.text}
-          </p>
-        ))}
-        {buyerLive ? (
-          <p className="phone__line" data-role="buyer" data-live="true">
-            <span className="phone__who">{buyerName}</span>
-            {buyerLive.text}
-          </p>
-        ) : null}
-        {sellerLive ? (
-          <p className="phone__line" data-role="seller" data-live="true">
-            <span className="phone__who">You</span>
-            {sellerLive.text}
-          </p>
-        ) : null}
+        ) : (
+          tape.map((t, i) => (
+            <p
+              key={t.segmentId ?? `${t.at}-${i}`}
+              className="phone__line"
+              data-role={t.role}
+              data-live={t.live ? "true" : undefined}
+            >
+              <span className="phone__who">{t.role === "buyer" ? buyerName : "You"}</span>
+              {t.text}
+            </p>
+          ))
+        )}
       </section>
 
       <footer className="phone__dock">

@@ -75,7 +75,7 @@ describe("prompts", () => {
     const text = buildBuyerInstructions(profile, mergePersonality(profile.personality));
     expect(text).toContain("Caleb");
     expect(text).toContain("Cityworks");
-    expect(text).toContain("hang_up");
+    expect(text).toContain("end_call");
     expect(text).not.toMatch(/I am a helpful assistant/i);
   });
 });

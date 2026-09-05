@@ -8,7 +8,20 @@ browser  --WebRTC-->  LiveKit room  <--agent--  OpenAI Realtime
                     +-- @osp/core (YAML profiles, prompts, rubric)
 ```
 
-The browser publishes the mic and plays the buyer. Live captions arrive on `lk.transcription`. Typed lines go on `lk.chat`.
+The browser publishes the mic and plays the buyer. The agent is an OpenAI Realtime session (`gpt-realtime`, semantic VAD) dispatched into the room by name `open-sales-practice`.
+
+## Tape
+
+Two streams, merged by the web app:
+
+1. Live captions on `lk.transcription`. Each utterance has a `lk.segment_id`. Interims update that segment in place; the final stream (or the end of an unmarked stream) commits it. Typed lines go on `lk.chat`.
+2. The agent's `session.history`, published on `osp.transcript` whenever a conversation item is committed. Hangup and shutdown send the same snapshot so scoring does not depend on the browser catching every caption.
+
+Hangup merges both sides into `calls.transcript_json`, then grades that tape.
+
+## Call end
+
+The buyer calls LiveKit's `end_call` tool (`deleteRoom: true`, ignored during the opening line). The room drop is what hangs up the phone. The seller hangup button disconnects and POSTs `/api/calls/:id/end`.
 
 ## Extensibility
 

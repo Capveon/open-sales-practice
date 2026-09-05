@@ -258,12 +258,12 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 36px 0 20px;
-  gap: 8px;
+  padding: 12px 0 8px;
+  gap: 4px;
 }
 .phone__avatar {
-  width: 96px;
-  height: 96px;
+  width: 64px;
+  height: 64px;
   display: grid;
   place-items: center;
   margin-bottom: 8px;
@@ -273,7 +273,7 @@
     inset 0 1px 0 var(--st-metal-hi),
     0 1px 0 var(--st-metal-lo);
   font-family: var(--family-wordmark);
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 600;
   font-variation-settings: "opsz" 24;
   color: var(--st-ink);
@@ -465,6 +465,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 8px 0;
+  max-height: min(70vh, 640px);
 }
 .bubble {
   max-width: 85%;
@@ -472,6 +473,14 @@
   border-radius: 0;
   font-size: 0.875rem;
   line-height: 1.45;
+}
+.bubble__who {
+  margin: 0 0 4px;
+  font-family: var(--family-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--st-ink-3);
 }
 .bubble[data-role="buyer"] {
   background: var(--st-sheet-2);

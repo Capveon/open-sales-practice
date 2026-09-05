@@ -3,6 +3,7 @@ import { asError } from "@/lib/api";
 import { hangupCall, scoreEndedCall, serializeOwnedCall } from "@/lib/finish-call";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {

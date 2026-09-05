@@ -1,4 +1,4 @@
-import type { Personality, Profile, TranscriptTurn } from "@osp/core";
+import { parseTranscriptJson, type Personality, type Profile } from "@osp/core";
 import type { CallRow } from "./db";
 
 export function serializeCall(row: CallRow, profile: Profile) {
@@ -9,7 +9,7 @@ export function serializeCall(row: CallRow, profile: Profile) {
     status: row.status,
     startedAt: row.started_at,
     endedAt: row.ended_at,
-    transcript: JSON.parse(row.transcript_json) as TranscriptTurn[],
+    transcript: parseTranscriptJson(row.transcript_json),
     score: row.score_json ? JSON.parse(row.score_json) : null,
     overall: row.overall,
     profile: {

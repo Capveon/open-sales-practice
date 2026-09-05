@@ -28,9 +28,19 @@ export function Debrief({ id }: { id: string }) {
   const [mine, setMine] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scoring, setScoring] = useState(true);
+  const [scoreError, setScoreError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
+    let attempts = 0;
+
+    const loadClips = async () => {
+      const clipRes = await fetch(`/api/calls/${id}/clips`);
+      if (!clipRes.ok) return;
+      const clipJson = await clipRes.json();
+      if (alive) setClips(clipJson.clips ?? []);
+    };
+
     const load = async () => {
       const loaded = await fetch(`/api/calls/${id}`);
       const json = await loaded.json();
@@ -38,13 +48,10 @@ export function Debrief({ id }: { id: string }) {
       if (!alive) return;
       setCall(json.call);
       setMine(json.mine !== false);
-      const clipRes = await fetch(`/api/calls/${id}/clips`);
-      if (clipRes.ok) {
-        const clipJson = await clipRes.json();
-        if (alive) setClips(clipJson.clips ?? []);
-      }
+      void loadClips();
       if (json.call?.score) {
         setScoring(false);
+        setScoreError(null);
         return;
       }
       if (json.mine === false) {
@@ -53,12 +60,29 @@ export function Debrief({ id }: { id: string }) {
       }
       setScoring(true);
       const scored = await fetch(`/api/calls/${id}/score`, { method: "POST" });
-      const scoredJson = await scored.json();
+      const scoredJson = await scored.json().catch(() => ({}));
       if (!alive) return;
-      if (!scored.ok) throw new Error(scoredJson.error ?? "Could not score the tape.");
-      setCall(scoredJson.call);
+      if (scored.ok && scoredJson.call) {
+        setCall(scoredJson.call);
+        setScoring(false);
+        setScoreError(null);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 8) {
+        window.setTimeout(() => {
+          void load().catch((e: Error) => {
+            if (alive) setScoreError(e.message);
+          });
+        }, 1000);
+        return;
+      }
       setScoring(false);
+      setScoreError(
+        typeof scoredJson.error === "string" ? scoredJson.error : "Could not score the tape.",
+      );
     };
+
     void load().catch((e: Error) => {
       if (alive) setError(e.message);
     });
@@ -100,13 +124,15 @@ export function Debrief({ id }: { id: string }) {
           <p className="t-meta">
             {scoring && !score
               ? "Grade lands in a few seconds."
-              : score?.method === "llm"
-                ? "Model grade"
-                : score
-                  ? "Heuristic grade"
-                  : mine
-                    ? "Not scored"
-                    : "Waiting on a score"}
+              : scoreError
+                ? scoreError
+                : score?.method === "llm"
+                  ? "Model grade"
+                  : score
+                    ? "Heuristic grade"
+                    : mine
+                      ? "Not scored"
+                      : "Waiting on a score"}
           </p>
         </div>
       </div>
@@ -132,7 +158,7 @@ export function Debrief({ id }: { id: string }) {
       ) : null}
       <div className="coaching">
         <p className="t-eyebrow">Tape</p>
-        <div className="transcript" style={{ maxHeight: 480 }}>
+        <div className="transcript">
           {call.transcript.length === 0 ? (
             <p className="t-meta">No lines captured.</p>
           ) : (
@@ -141,6 +167,7 @@ export function Debrief({ id }: { id: string }) {
                 t.role === "buyer" ? byRole.buyer[buyerI++] : byRole.seller[sellerI++];
               return (
                 <div key={`${t.at}-${i}`} className="bubble" data-role={t.role}>
+                  <p className="bubble__who">{t.role === "buyer" ? call.profile.name.split(" ")[0] : "You"}</p>
                   <p style={{ margin: 0 }}>{t.text}</p>
                   {clip ? (
                     <audio className="tape-audio" controls preload="none" src={clip.url}>
