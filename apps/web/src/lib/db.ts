@@ -232,6 +232,17 @@ CREATE INDEX IF NOT EXISTS clips_call ON ${q}.call_clips(call_id, seq);
 `;
 }
 
+export async function closeDb() {
+  if (pg) {
+    await pg.end({ timeout: 2 });
+    pg = null;
+  }
+  if (pgAdmin) {
+    await pgAdmin.end({ timeout: 2 });
+    pgAdmin = null;
+  }
+}
+
 export async function migrate() {
   if (!isPostgres()) {
     await sqliteClient().executeMultiple(SQLITE_DDL);

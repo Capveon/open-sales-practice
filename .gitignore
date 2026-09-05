@@ -2,6 +2,7 @@ node_modules
 .next
 .turbo
 .wrangler
+apps/web/profiles
 .open-next
 dist
 coverage

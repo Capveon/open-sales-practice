@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { PackSchema, ProfileSchema, type Pack, type Profile } from "./schema";
+import bundledProfiles from "./bundled-profiles.json";
 
 export interface LoadedPack {
   pack: Pack;
@@ -100,7 +101,13 @@ function loadPacksFromRoot(root: string): LoadedPack[] {
   return packs;
 }
 
-export function loadPacks(root?: string): LoadedPack[] {
+function loadBundled(): LoadedPack[] {
+  const raw = bundledProfiles as { pack: Pack; profiles: Profile[] }[];
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw.map((p) => ({ pack: p.pack, dir: "", profiles: p.profiles }));
+}
+
+function loadPacksFromDisk(root?: string): LoadedPack[] {
   const roots = root ? [resolveProfilesRoot(root)] : resolveProfileRoots();
   const byId = new Map<string, LoadedPack>();
   for (const r of roots) {
@@ -121,6 +128,22 @@ export function loadPacks(root?: string): LoadedPack[] {
     }
   }
   const packs = [...byId.values()];
+  packs.sort((a, b) => {
+    const filled = Number(b.profiles.length > 0) - Number(a.profiles.length > 0);
+    if (filled !== 0) return filled;
+    return a.pack.label.localeCompare(b.pack.label);
+  });
+  return packs;
+}
+
+export function loadPacks(root?: string): LoadedPack[] {
+  let packs: LoadedPack[] = [];
+  try {
+    packs = loadPacksFromDisk(root);
+  } catch {
+    packs = [];
+  }
+  if (packs.length === 0) packs = loadBundled();
   packs.sort((a, b) => {
     const filled = Number(b.profiles.length > 0) - Number(a.profiles.length > 0);
     if (filled !== 0) return filled;

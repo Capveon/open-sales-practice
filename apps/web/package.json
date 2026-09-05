@@ -8,11 +8,14 @@
     "build": "next build",
     "start": "next start --port 3100",
     "db:migrate": "tsx src/scripts/migrate.ts",
+    "cf:build": "tsx ../../packages/core/src/scripts/write-bundle.ts && opennextjs-cloudflare build",
+    "cf:deploy": "tsx ../../packages/core/src/scripts/write-bundle.ts && opennextjs-cloudflare deploy",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.4",
     "@libsql/client": "^0.14.0",
+    "@opennextjs/cloudflare": "^1.20.6",
     "@osp/core": "workspace:*",
     "geist": "^1.3.1",
     "livekit-client": "^2.9.5",
@@ -27,6 +30,7 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "^4.129.0"
   }
 }

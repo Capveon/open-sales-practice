@@ -16,6 +16,7 @@
     "dev:all": "pnpm -r --parallel --filter @osp/web --filter @osp/agent dev",
     "build": "pnpm -r build",
     "db:migrate": "pnpm --filter @osp/web db:migrate",
+    "cf:deploy": "pnpm --filter @osp/web cf:deploy",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @osp/core test",
     "lint": "pnpm -r lint"
