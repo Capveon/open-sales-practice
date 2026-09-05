@@ -37,12 +37,20 @@ function parseMeta(raw: string | undefined): RoomMeta {
   }
 }
 
+function metaFrom(ctx: JobContext): RoomMeta {
+  const job = parseMeta(ctx.job.metadata);
+  const assigned = parseMeta(ctx.job.room?.metadata);
+  const room = parseMeta(ctx.room.metadata);
+  return { ...assigned, ...room, ...job };
+}
+
 export default defineAgent({
   entry: async (ctx: JobContext) => {
-    const meta = parseMeta(ctx.room.metadata);
+    await ctx.connect();
+    const meta = metaFrom(ctx);
     const profileId = meta.profileId;
     if (!profileId) {
-      throw new Error("Room metadata is missing profileId");
+      throw new Error("Job is missing profileId in metadata");
     }
     const profile = getProfile(profileId);
     const personality = mergePersonality(profile.personality, meta.personality);
@@ -73,8 +81,6 @@ export default defineAgent({
         syncTranscription: true,
       },
     });
-
-    await ctx.connect();
 
     await session.generateReply({
       instructions:

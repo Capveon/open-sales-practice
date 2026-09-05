@@ -1,5 +1,12 @@
 import { AGENT_NAME } from "@osp/core";
-import { AccessToken, RoomAgentDispatch, RoomServiceClient, type VideoGrant } from "livekit-server-sdk";
+import {
+  AccessToken,
+  AgentDispatchClient,
+  RoomAgentDispatch,
+  RoomConfiguration,
+  RoomServiceClient,
+  type VideoGrant,
+} from "livekit-server-sdk";
 import { HttpError } from "./api";
 
 function keys() {
@@ -16,26 +23,47 @@ function httpHost(wsUrl: string): string {
   return wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
 }
 
+function alreadyThere(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /already|exist/i.test(message);
+}
+
 export async function mintRoomToken(input: {
   room: string;
   identity: string;
   metadata: string;
 }): Promise<{ url: string; token: string }> {
   const { url, key, secret } = keys();
-  const svc = new RoomServiceClient(httpHost(url), key, secret);
+  const host = httpHost(url);
+  const rooms = new RoomServiceClient(host, key, secret);
+  const dispatch = new AgentDispatchClient(host, key, secret);
+  const agent = new RoomAgentDispatch({
+    agentName: AGENT_NAME,
+    metadata: input.metadata,
+  });
+
   try {
-    await svc.createRoom({
+    await rooms.createRoom({
       name: input.room,
       metadata: input.metadata,
-      agents: [new RoomAgentDispatch({ agentName: AGENT_NAME })],
+      agents: [agent],
     });
-  } catch {
-    // Room already exists from the first dial.
+  } catch (err) {
+    if (!alreadyThere(err)) throw err;
+  }
+
+  try {
+    const current = await dispatch.listDispatch(input.room);
+    const named = current.some((d) => d.agentName === AGENT_NAME);
+    if (!named) {
+      await dispatch.createDispatch(input.room, AGENT_NAME, { metadata: input.metadata });
+    }
+  } catch (err) {
+    if (!alreadyThere(err)) throw err;
   }
 
   const at = new AccessToken(key, secret, {
     identity: input.identity,
-    metadata: input.metadata,
     ttl: "15m",
   });
   const grant: VideoGrant = {
@@ -46,5 +74,8 @@ export async function mintRoomToken(input: {
     canPublishData: true,
   };
   at.addGrant(grant);
+  at.roomConfig = new RoomConfiguration({
+    agents: [agent],
+  });
   return { url, token: await at.toJwt() };
 }
