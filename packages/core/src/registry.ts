@@ -136,12 +136,18 @@ function loadPacksFromDisk(root?: string): LoadedPack[] {
   return packs;
 }
 
+function isWorkerd(): boolean {
+  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+}
+
 export function loadPacks(root?: string): LoadedPack[] {
   let packs: LoadedPack[] = [];
-  try {
-    packs = loadPacksFromDisk(root);
-  } catch {
-    packs = [];
+  if (!isWorkerd()) {
+    try {
+      packs = loadPacksFromDisk(root);
+    } catch {
+      packs = [];
+    }
   }
   if (packs.length === 0) packs = loadBundled();
   packs.sort((a, b) => {

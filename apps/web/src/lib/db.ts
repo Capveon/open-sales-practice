@@ -92,13 +92,17 @@ async function hyperdriveUrl(): Promise<string | undefined> {
 
 async function resolveRuntimeUrl(): Promise<string> {
   if (cachedRuntimeUrl) return cachedRuntimeUrl;
+  const fromHd = await hyperdriveUrl();
+  if (fromHd) {
+    cachedRuntimeUrl = fromHd;
+    return fromHd;
+  }
   const fromEnv = process.env.DATABASE_URL?.trim();
   if (fromEnv) {
     cachedRuntimeUrl = fromEnv;
     return fromEnv;
   }
-  const fromHd = await hyperdriveUrl();
-  cachedRuntimeUrl = fromHd ?? "file:./data/osp.sqlite";
+  cachedRuntimeUrl = "file:./data/osp.sqlite";
   return cachedRuntimeUrl;
 }
 
@@ -156,7 +160,13 @@ function sslFor(url: string) {
       return { rejectUnauthorized: false };
     }
     if (host === "localhost" || host === "127.0.0.1") return false;
-    if (host.includes("hyperdrive") || host.endsWith(".hyperdrive.local")) return false;
+    if (
+      host.includes("hyperdrive") ||
+      host.endsWith(".hyperdrive.local") ||
+      host.endsWith(".hyperdrive.cloudflare.com")
+    ) {
+      return false;
+    }
     return { rejectUnauthorized: false };
   } catch {
     return false;
@@ -191,9 +201,11 @@ function pgClient(url: string, cache: "runtime" | "admin"): Sql {
   if (cache === "admin" && pgAdmin) return pgAdmin;
   const sql = postgres(stripSslMode(url), {
     ssl: sslFor(url),
-    max: 5,
+    max: 1,
     prepare: false,
     fetch_types: false,
+    connect_timeout: 10,
+    idle_timeout: 20,
   });
   if (cache === "runtime") pg = sql;
   else pgAdmin = sql;
@@ -272,12 +284,15 @@ export async function closeDb() {
   }
 }
 
+let postgresMigrated = false;
+
 export async function migrate() {
   const url = await resolveRuntimeUrl();
   if (!usesPostgres(url)) {
     await sqliteClient(url).executeMultiple(SQLITE_DDL);
     return;
   }
+  if (process.env.OSP_SKIP_MIGRATE === "1" || postgresMigrated) return;
   const schema = dbSchema() || "osp";
   const admin = pgClient(adminUrl() || url, "admin");
   await admin.unsafe(postgresDdl(schema));
@@ -290,4 +305,5 @@ export async function migrate() {
   } catch {
     /* role is Capveon-specific; OSS postgres users own the schema they created */
   }
+  postgresMigrated = true;
 }
