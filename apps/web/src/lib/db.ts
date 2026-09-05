@@ -196,9 +196,15 @@ function sqliteClient(url: string): Client {
   return sqlite;
 }
 
+function isWorkerd(): boolean {
+  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+}
+
 function pgClient(url: string, cache: "runtime" | "admin"): Sql {
-  if (cache === "runtime" && pg) return pg;
-  if (cache === "admin" && pgAdmin) return pgAdmin;
+  if (!isWorkerd()) {
+    if (cache === "runtime" && pg) return pg;
+    if (cache === "admin" && pgAdmin) return pgAdmin;
+  }
   const sql = postgres(stripSslMode(url), {
     ssl: sslFor(url),
     max: 1,
@@ -207,8 +213,10 @@ function pgClient(url: string, cache: "runtime" | "admin"): Sql {
     connect_timeout: 10,
     idle_timeout: 20,
   });
-  if (cache === "runtime") pg = sql;
-  else pgAdmin = sql;
+  if (!isWorkerd()) {
+    if (cache === "runtime") pg = sql;
+    else pgAdmin = sql;
+  }
   return sql;
 }
 
