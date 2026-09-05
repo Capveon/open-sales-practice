@@ -20,6 +20,7 @@ RUN pnpm install --frozen-lockfile --filter @osp/agent...
 
 COPY packages/core packages/core
 COPY apps/agent apps/agent
+ENV CI=true
 RUN pnpm prune --prod
 
 FROM base

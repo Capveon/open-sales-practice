@@ -1,8 +1,6 @@
-import { voiceMode } from "@osp/core";
 import { loadPacks } from "@osp/core/registry";
 import { requireUser } from "@/lib/auth";
 import { asError } from "@/lib/api";
-import { livekitConfigured } from "@/lib/livekit";
 
 export async function GET() {
   try {
@@ -25,7 +23,6 @@ export async function GET() {
     }));
     return Response.json({
       user: { id: user.id, name: user.name },
-      voice: voiceMode() === "voice" && livekitConfigured() ? "voice" : "mock",
       packs,
     });
   } catch (err) {

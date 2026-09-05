@@ -29,7 +29,7 @@ description: Shown on the roster.
 | `summary` | roster card |
 | `repBrief` | seller only, before they dial |
 | `cast` | `gender`, `age`, `region`. Maps onto a shared voice bank. |
-| `voice` | optional OpenAI Realtime / TTS override |
+| `voice` | optional OpenAI Realtime voice override |
 | `opening` | `engaged` \| `busy` \| `skeptical` \| `hostile` \| `wrong-book` |
 | `personality` | `warmth`, `patience`, `skepticism`, `verbosity`, `hostility`, `timePressure` (0–1) |
 | `attributes` | free-form facts |

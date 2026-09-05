@@ -1,9 +1,9 @@
-import { mergePersonality, voiceMode, type TranscriptTurn } from "@osp/core";
+import { mergePersonality, type TranscriptTurn } from "@osp/core";
 import { getProfile } from "@osp/core/registry";
 import { requireUser } from "@/lib/auth";
 import { asError } from "@/lib/api";
 import { db } from "@/lib/db";
-import { livekitConfigured, mintRoomToken } from "@/lib/livekit";
+import { mintRoomToken } from "@/lib/livekit";
 import { parsePersonality } from "@/lib/personality";
 
 export async function POST(req: Request) {
@@ -18,38 +18,31 @@ export async function POST(req: Request) {
 
     const id = crypto.randomUUID();
     const started_at = Date.now();
-    const mode = voiceMode() === "voice" && livekitConfigured() ? "voice" : "mock";
     const room_name = `osp-${id.slice(0, 8)}`;
     const transcript: TranscriptTurn[] = [];
-
-    await db().execute({
-      sql: `INSERT INTO calls (id, user_id, profile_id, personality_json, status, started_at, transcript_json, credits_spent, voice_mode, room_name)
-            VALUES (?, ?, ?, ?, 'live', ?, '[]', 0, ?, ?)`,
-      args: [id, user.id, profile.id, JSON.stringify(personality), started_at, mode, room_name],
-    });
-
     const metadata = JSON.stringify({
       callId: id,
       profileId: profile.id,
       personality,
       userId: user.id,
     });
+    const livekit = await mintRoomToken({
+      room: room_name,
+      identity: `rep-${user.id.slice(0, 8)}`,
+      metadata,
+    });
 
-    const livekit =
-      mode === "voice"
-        ? await mintRoomToken({
-            room: room_name,
-            identity: `rep-${user.id.slice(0, 8)}`,
-            metadata,
-          })
-        : null;
+    await db().execute({
+      sql: `INSERT INTO calls (id, user_id, profile_id, personality_json, status, started_at, transcript_json, credits_spent, voice_mode, room_name)
+            VALUES (?, ?, ?, ?, 'live', ?, '[]', 0, 'voice', ?)`,
+      args: [id, user.id, profile.id, JSON.stringify(personality), started_at, room_name],
+    });
 
     return Response.json({
       call: {
         id,
         profileId: profile.id,
         personality,
-        voiceMode: mode,
         startedAt: started_at,
         transcript,
         profile: {

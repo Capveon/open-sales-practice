@@ -1,5 +1,6 @@
 import {
   CallScoreSchema,
+  SCORE_MODEL,
   heuristicScore,
   scoringPrompt,
   type CallScore,
@@ -17,7 +18,6 @@ export async function scoreCall(
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key || turns.length === 0) return fallback;
   try {
-    const model = process.env.OPENAI_SCORE_MODEL ?? "gpt-4.1-mini";
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -25,7 +25,7 @@ export async function scoreCall(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model,
+        model: SCORE_MODEL,
         temperature: 0.2,
         response_format: { type: "json_object" },
         messages: [

@@ -1,20 +1,4 @@
-import { GlobalSettingsSchema, type GlobalSettings } from "./schema";
-
-export function loadGlobalSettings(env: NodeJS.ProcessEnv = process.env): GlobalSettings {
-  return GlobalSettingsSchema.parse({
-    appName: env.OSP_APP_NAME,
-    callMaxSeconds: env.OSP_CALL_MAX_SECONDS ? Number(env.OSP_CALL_MAX_SECONDS) : undefined,
-    scoreModel: env.OPENAI_SCORE_MODEL,
-    realtimeModel: env.OPENAI_REALTIME_MODEL,
-    defaultVoice: env.OSP_DEFAULT_VOICE,
-    ttsModel: env.OPENAI_TTS_MODEL,
-  });
-}
-
-export function voiceMode(env: NodeJS.ProcessEnv = process.env): "mock" | "voice" {
-  return env.OSP_VOICE_MODE === "voice" ? "voice" : "mock";
-}
-
-export function authMode(_env: NodeJS.ProcessEnv = process.env): "clerk" {
-  return "clerk";
-}
+export const AGENT_NAME = "open-sales-practice";
+export const CALL_MAX_SECONDS = 180;
+export const SCORE_MODEL = "gpt-4.1-mini";
+export const REALTIME_MODEL = "gpt-realtime";

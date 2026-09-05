@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PERSONALITY_FIELDS } from "@/lib/personality";
-import { unlockPlayback } from "@/lib/playback";
 import type { Personality } from "@osp/core";
 
 type ProfileCard = {
@@ -52,7 +51,6 @@ export function Roster() {
     if (!selected || !personality) return;
     setStarting(true);
     setError(null);
-    await unlockPlayback().catch(() => undefined);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },

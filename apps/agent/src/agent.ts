@@ -12,6 +12,9 @@ import {
   buildBuyerInstructions,
   mergePersonality,
   resolveVoice,
+  speakInstructions,
+  AGENT_NAME,
+  REALTIME_MODEL,
   type Personality,
 } from "@osp/core";
 import { getProfile } from "@osp/core/registry";
@@ -43,13 +46,13 @@ export default defineAgent({
     }
     const profile = getProfile(profileId);
     const personality = mergePersonality(profile.personality, meta.personality);
-    const instructions = buildBuyerInstructions(profile, personality);
+    const instructions = `${speakInstructions(profile, personality)}\n\n${buildBuyerInstructions(profile, personality)}`;
     const voiceName = profile.voice || resolveVoice(profile).openai;
 
     const session = new voice.AgentSession({
       llm: new openai.realtime.RealtimeModel({
         voice: voiceName,
-        model: process.env.OPENAI_REALTIME_MODEL || "gpt-realtime",
+        model: REALTIME_MODEL,
         turnDetection: {
           type: "semantic_vad",
           eagerness: "medium",
@@ -83,6 +86,6 @@ export default defineAgent({
 cli.runApp(
   new ServerOptions({
     agent: fileURLToPath(import.meta.url),
-    agentName: process.env.OSP_AGENT_NAME ?? "open-sales-practice",
+    agentName: AGENT_NAME,
   }),
 );

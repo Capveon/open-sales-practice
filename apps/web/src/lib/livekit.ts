@@ -1,11 +1,15 @@
+import { AGENT_NAME } from "@osp/core";
 import { AccessToken, RoomAgentDispatch, RoomServiceClient, type VideoGrant } from "livekit-server-sdk";
+import { HttpError } from "./api";
 
-export function livekitConfigured(): boolean {
-  return Boolean(
-    process.env.LIVEKIT_URL?.trim() &&
-      process.env.LIVEKIT_API_KEY?.trim() &&
-      process.env.LIVEKIT_API_SECRET?.trim(),
-  );
+function keys() {
+  const url = process.env.LIVEKIT_URL?.trim();
+  const key = process.env.LIVEKIT_API_KEY?.trim();
+  const secret = process.env.LIVEKIT_API_SECRET?.trim();
+  if (!url || !key || !secret) {
+    throw new HttpError("Set LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET.", 503);
+  }
+  return { url, key, secret };
 }
 
 function httpHost(wsUrl: string): string {
@@ -17,24 +21,16 @@ export async function mintRoomToken(input: {
   identity: string;
   metadata: string;
 }): Promise<{ url: string; token: string }> {
-  const url = process.env.LIVEKIT_URL;
-  const key = process.env.LIVEKIT_API_KEY;
-  const secret = process.env.LIVEKIT_API_SECRET;
-  if (!url || !key || !secret) throw new Error("LiveKit is not configured");
-
+  const { url, key, secret } = keys();
   const svc = new RoomServiceClient(httpHost(url), key, secret);
   try {
     await svc.createRoom({
       name: input.room,
       metadata: input.metadata,
-      agents: [
-        new RoomAgentDispatch({
-          agentName: process.env.OSP_AGENT_NAME ?? "open-sales-practice",
-        }),
-      ],
+      agents: [new RoomAgentDispatch({ agentName: AGENT_NAME })],
     });
   } catch {
-    // Room already exists from the first dial. Token mint still works.
+    // Room already exists from the first dial.
   }
 
   const at = new AccessToken(key, secret, {

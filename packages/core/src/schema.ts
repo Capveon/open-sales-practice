@@ -21,7 +21,7 @@ export const RubricItemSchema = z.object({
   label: z.string(),
   description: z.string(),
   weight: z.number().positive().default(1),
-  /** Extra keywords that help the heuristic scorer when no LLM is configured. */
+  /** Extra keywords that help the heuristic scorer. */
   rewardHints: z.array(z.string()).default([]),
   penalizeHints: z.array(z.string()).default([]),
 });
@@ -84,17 +84,6 @@ export const PackSchema = z.object({
 });
 
 export type Pack = z.infer<typeof PackSchema>;
-
-export const GlobalSettingsSchema = z.object({
-  appName: z.string().default("Open Sales Practice"),
-  callMaxSeconds: z.number().int().positive().default(180),
-  scoreModel: z.string().default("gpt-4.1-mini"),
-  realtimeModel: z.string().default("gpt-realtime"),
-  defaultVoice: z.string().default("ash"),
-  ttsModel: z.string().default("gpt-4o-mini-tts"),
-});
-
-export type GlobalSettings = z.infer<typeof GlobalSettingsSchema>;
 
 export const TranscriptTurnSchema = z.object({
   role: z.enum(["seller", "buyer"]),

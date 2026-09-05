@@ -12,7 +12,6 @@ export function serializeCall(row: CallRow, profile: Profile) {
     transcript: JSON.parse(row.transcript_json) as TranscriptTurn[],
     score: row.score_json ? JSON.parse(row.score_json) : null,
     overall: row.overall,
-    voiceMode: row.voice_mode,
     profile: {
       name: profile.name,
       title: profile.title,

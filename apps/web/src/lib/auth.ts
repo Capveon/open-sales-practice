@@ -1,6 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { db, migrate, type UserRow } from "./db";
-export { clerkConfigured } from "./flags";
 
 export async function requireUser(): Promise<UserRow> {
   await migrate();

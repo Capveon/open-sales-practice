@@ -1,8 +1,5 @@
 export function publicBrand() {
-  const appName =
-    process.env.NEXT_PUBLIC_OSP_APP_NAME?.trim() ||
-    process.env.OSP_APP_NAME?.trim() ||
-    "Open Sales Practice";
+  const appName = process.env.NEXT_PUBLIC_OSP_APP_NAME?.trim() || "Open Sales Practice";
   return {
     appName,
     product: process.env.NEXT_PUBLIC_OSP_PRODUCT?.trim() || "Practice",

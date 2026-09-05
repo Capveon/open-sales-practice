@@ -5,34 +5,22 @@ export type VoiceSlot = {
   gender: VoiceCast["gender"];
   age: VoiceCast["age"];
   region: VoiceCast["region"];
-  /** ElevenLabs premade voice id. Override with ELEVENLABS_VOICE_<ID>. */
-  elevenLabsId: string;
-  /** OpenAI TTS / Realtime voice. */
   openai: string;
 };
 
-/**
- * A small bank, not one clone per buyer. Profiles pick gender / age / region;
- * we map them onto these seats so two superintendents can share a throat.
- */
 export const VOICE_BANK: readonly VoiceSlot[] = [
-  { id: "male-young", gender: "male", age: "young", region: "general", elevenLabsId: "bIHbv24MWmeRgasZH58o", openai: "verse" },
-  { id: "male-mid", gender: "male", age: "mid", region: "general", elevenLabsId: "iP95p4xoKVk53GoZ742B", openai: "ash" },
-  { id: "male-mid-southwest", gender: "male", age: "mid", region: "southwest", elevenLabsId: "pNInz6obpgDQGcFmaJgB", openai: "ash" },
-  { id: "male-mid-midwest", gender: "male", age: "mid", region: "midwest", elevenLabsId: "cjVigY5qzO86Huf0OWal", openai: "ash" },
-  { id: "male-older", gender: "male", age: "older", region: "general", elevenLabsId: "pqHfZKP75CvOlQylNhV4", openai: "ballad" },
-  { id: "female-young", gender: "female", age: "young", region: "general", elevenLabsId: "cgSgspJ2msm6clMCkdW9", openai: "marin" },
-  { id: "female-mid", gender: "female", age: "mid", region: "general", elevenLabsId: "XrExE9yKIg1WjnnlVkGX", openai: "coral" },
-  { id: "female-mid-southwest", gender: "female", age: "mid", region: "southwest", elevenLabsId: "hpp4J3VqNfWAUOO0d1Us", openai: "coral" },
-  { id: "female-older", gender: "female", age: "older", region: "general", elevenLabsId: "pFZP5JQG7iQjIQuC4Bku", openai: "sage" },
+  { id: "male-young", gender: "male", age: "young", region: "general", openai: "verse" },
+  { id: "male-mid", gender: "male", age: "mid", region: "general", openai: "ash" },
+  { id: "male-mid-southwest", gender: "male", age: "mid", region: "southwest", openai: "ash" },
+  { id: "male-mid-midwest", gender: "male", age: "mid", region: "midwest", openai: "ash" },
+  { id: "male-older", gender: "male", age: "older", region: "general", openai: "ballad" },
+  { id: "female-young", gender: "female", age: "young", region: "general", openai: "marin" },
+  { id: "female-mid", gender: "female", age: "mid", region: "general", openai: "coral" },
+  { id: "female-mid-southwest", gender: "female", age: "mid", region: "southwest", openai: "coral" },
+  { id: "female-older", gender: "female", age: "older", region: "general", openai: "sage" },
 ];
 
-function envOverride(slot: VoiceSlot): string {
-  const key = `ELEVENLABS_VOICE_${slot.id.replace(/-/g, "_").toUpperCase()}`;
-  return process.env[key]?.trim() || slot.elevenLabsId;
-}
-
-export function resolveVoice(profile: Profile): VoiceSlot & { elevenLabsId: string; openai: string } {
+export function resolveVoice(profile: Profile): VoiceSlot {
   const cast = profile.cast;
   const scored = VOICE_BANK.map((slot) => {
     let score = 0;
@@ -44,8 +32,7 @@ export function resolveVoice(profile: Profile): VoiceSlot & { elevenLabsId: stri
   });
   scored.sort((a, b) => b.score - a.score);
   const slot = scored[0]?.slot ?? VOICE_BANK[2]!;
-  const openai = profile.voice?.trim() || slot.openai;
-  return { ...slot, elevenLabsId: envOverride(slot), openai };
+  return { ...slot, openai: profile.voice?.trim() || slot.openai };
 }
 
 function agePhrase(age: VoiceCast["age"]): string {
@@ -62,7 +49,6 @@ function regionPhrase(region: VoiceCast["region"]): string {
   return "general American";
 }
 
-/** Delivery notes for TTS. The model is the person, not a narrator. */
 export function speakInstructions(profile: Profile, personality: Personality): string {
   const cast = profile.cast;
   const clipped = personality.verbosity < 0.35 || personality.timePressure > 0.7;

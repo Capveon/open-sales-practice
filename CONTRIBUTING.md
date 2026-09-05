@@ -5,7 +5,7 @@
 1. Copy `profiles/packs/manufacturers/_template.yaml` into the pack folder you want (`examples`, `manufacturers`, `contractors`, or a new pack).
 2. Use a lowercase kebab-case `id`. `pack` must match `pack.yaml`.
 3. Fill `repBrief` (what the seller is practicing) and `facts` / `vernacular` (what the buyer knows).
-4. Run `pnpm test`. Start a mock call and hang up once.
+4. Run `pnpm test`. Start a call and hang up once.
 
 Do not put secrets in YAML. Do not put your company’s product name in the buyer prompt unless the persona would actually know it.
 

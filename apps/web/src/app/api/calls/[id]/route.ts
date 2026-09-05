@@ -1,9 +1,9 @@
-import { loadGlobalSettings, type Profile, type TranscriptTurn } from "@osp/core";
+import { CALL_MAX_SECONDS, type Profile, type TranscriptTurn } from "@osp/core";
 import { getProfile } from "@osp/core/registry";
 import { requireUser } from "@/lib/auth";
 import { asError } from "@/lib/api";
 import { db, type CallRow } from "@/lib/db";
-import { livekitConfigured, mintRoomToken } from "@/lib/livekit";
+import { mintRoomToken } from "@/lib/livekit";
 import { serializeCall } from "@/lib/serialize-call";
 
 function profileFor(id: string): Profile {
@@ -54,7 +54,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     }
 
     let livekit: { url: string; token: string } | null = null;
-    if (mine && row.status === "live" && row.voice_mode === "voice" && livekitConfigured() && row.room_name) {
+    if (mine && row.status === "live" && row.room_name) {
       livekit = await mintRoomToken({
         room: row.room_name,
         identity: `rep-${user.id.slice(0, 8)}`,
@@ -70,7 +70,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     return Response.json({
       call: serializeCall(row, profileFor(row.profile_id)),
       mine,
-      callMaxSeconds: loadGlobalSettings().callMaxSeconds,
+      callMaxSeconds: CALL_MAX_SECONDS,
       livekit,
     });
   } catch (err) {
