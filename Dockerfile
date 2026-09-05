@@ -20,8 +20,6 @@ RUN pnpm install --frozen-lockfile --filter @osp/agent...
 
 COPY packages/core packages/core
 COPY apps/agent apps/agent
-ENV CI=true
-RUN pnpm prune --prod
 
 FROM base
 ARG UID=10001
@@ -37,6 +35,7 @@ WORKDIR /app
 COPY --from=build --chown=appuser:appuser /app /app
 USER appuser
 ENV NODE_ENV=production
+ENV PATH="/app/node_modules/.bin:/app/apps/agent/node_modules/.bin:${PATH}"
 
 WORKDIR /app/apps/agent
-CMD ["pnpm", "start"]
+CMD ["tsx", "src/agent.ts", "start"]
