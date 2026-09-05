@@ -1,0 +1,75 @@
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
+import {
+  type JobContext,
+  ServerOptions,
+  cli,
+  defineAgent,
+  voice,
+} from "@livekit/agents";
+import * as openai from "@livekit/agents-plugin-openai";
+import {
+  buildBuyerInstructions,
+  mergePersonality,
+  resolveVoice,
+  type Personality,
+} from "@osp/core";
+import { getProfile } from "@osp/core/registry";
+
+dotenv.config({ path: ".env.local" });
+dotenv.config({ path: "../../.env.local" });
+
+type RoomMeta = {
+  callId?: string;
+  profileId?: string;
+  personality?: Partial<Personality>;
+};
+
+function parseMeta(raw: string | undefined): RoomMeta {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as RoomMeta;
+  } catch {
+    return {};
+  }
+}
+
+export default defineAgent({
+  entry: async (ctx: JobContext) => {
+    await ctx.connect();
+    const meta = parseMeta(ctx.room.metadata);
+    const profileId = meta.profileId;
+    if (!profileId) {
+      throw new Error("Room metadata is missing profileId");
+    }
+    const profile = getProfile(profileId);
+    const personality = mergePersonality(profile.personality, meta.personality);
+    const instructions = buildBuyerInstructions(profile, personality);
+
+    const session = new voice.AgentSession({
+      llm: new openai.realtime.RealtimeModel({
+        voice: profile.voice || resolveVoice(profile).openai,
+        model: process.env.OPENAI_REALTIME_MODEL || "gpt-realtime",
+      }),
+    });
+
+    const agent = voice.Agent.create({ instructions });
+
+    await session.start({
+      agent,
+      room: ctx.room,
+    });
+
+    await session.generateReply({
+      instructions:
+        "The phone just connected. Give your first line only. Stay in character. Do not greet like an assistant.",
+    });
+  },
+});
+
+cli.runApp(
+  new ServerOptions({
+    agent: fileURLToPath(import.meta.url),
+    agentName: process.env.OSP_AGENT_NAME ?? "open-sales-practice",
+  }),
+);

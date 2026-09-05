@@ -1,0 +1,298 @@
+/*
+ * Design tokens — the entire visual language in one place.
+ *
+ * Direction: cold laboratory bench, blue-black structure, steel blue action. Every neutral
+ * carries a blue cast rather than a cream one — a warm grey on the cold ground reads as mud.
+ * Geist Sans + Geist Mono for all product surfaces; Source Serif 4 is marketing + wordmark only.
+ * Tonal separation before borders; deliberate 6 / 10 / 14 radii; restrained semantic colour.
+ * Light mode only for now.
+ *
+ * Tokens are named by INTENT, never appearance, so the whole system re-themes from this file alone.
+ */
+:root {
+  /* — Type families. layout.tsx self-hosts Geist via `--font-geist-sans` / `--font-geist-mono`.
+       The system is sans-led end to end: the serif display face was retired with the cold
+       laboratory direction and headlines are not coming back to it.
+
+       `--family-wordmark` is the one exception and it is deliberately narrow. If you are
+       reaching for this token for anything that is not the wordmark, use `--family-display`. — */
+  --family-sans:
+    var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui,
+    sans-serif;
+  --family-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --family-display: var(--family-sans);
+  --family-wordmark: var(--font-wordmark-serif), ui-serif, Georgia, "Times New Roman", Times, serif;
+
+  /* — Surfaces: cold bench ladder. Canvas is the workspace floor; surface is the working sheet. — */
+  --canvas: #f2f5f8;
+  --surface: #ffffff;
+  --surface-raised: #fafbfc;
+  --surface-muted: #edf1f5;
+
+  /* Back-compat surface ladder (older components reference these intent names). */
+  --backdrop: var(--canvas);
+  --backdrop-edge: var(--border-subtle);
+  --surface-1: var(--surface-muted);
+  --surface-2: #e3e8ee;
+  --surface-3: var(--border-subtle);
+  --surface-sunken: var(--surface-muted);
+
+  /* — Borders & lines. Hairlines carry structure; shadow is reserved for floating layers. — */
+  --border-subtle: #e0e5ea;
+  --border-strong: #c9d0d8;
+  --line: var(--border-subtle);
+  --line-strong: var(--border-strong);
+  --border: var(--border-subtle);
+
+  /* — Ink: cold near-black hierarchy. — */
+  --ink: #0b0e11;
+  --ink-secondary: #454c52;
+  --ink-tertiary: #5c646b; /* 5.5:1 on canvas — clears AA for normal text */
+  --ink-inverse: #f2f5f8;
+
+  /* Back-compat ink aliases. */
+  --fg: var(--ink);
+  --fg-strong: var(--ink);
+  --fg-strong-hover: #1a2129;
+  --fg-secondary: var(--ink-secondary);
+  --fg-tertiary: var(--ink-tertiary);
+  --fg-on-strong: var(--ink-inverse);
+
+  /* — Action: muted industrial blue — focus, links, primary interactive emphasis. — */
+  --action: #315b75;
+  --action-hover: #274b63;
+  --action-subtle: #e8f0f4;
+  --action-border: #b9ccd7;
+
+  /* Back-compat accent aliases. */
+  --accent: var(--action);
+  --accent-hover: var(--action-hover);
+  --accent-press: #1f3d52;
+  --accent-wash: var(--action-subtle);
+  --accent-line: var(--action-border);
+  --focus-ring: rgba(49, 91, 117, 0.45);
+  --on-accent: var(--ink-inverse);
+
+  /* — Interaction steps: hover whisper, active one step deeper. — */
+  --hover: rgba(10, 22, 34, 0.04);
+  --active: rgba(10, 22, 34, 0.07);
+  --chip-bg: var(--surface-muted);
+
+  /* — Selection — action-subtle wash, never decorative blue chrome. — */
+  --select-tint: var(--action-subtle);
+  --select-edge: var(--action-border);
+  --selection: rgba(49, 91, 117, 0.18);
+
+  /*
+   * Shell — tinted panel the content sheet sits against. Active navigation is a neutral
+   * surface lift with an action-coloured icon, never a blue wash or stripe.
+   */
+  --shell: #e9edf1;
+  --shell-line: var(--border-subtle);
+  --nav-active-bg: var(--surface);
+  --nav-active-fg: var(--ink);
+  --nav-idle-fg: var(--ink-secondary);
+
+  /* — Semantic status. Colour reinforces icon + label; never carries meaning alone. — */
+  --success: #2f6b4f;
+  --success-fg: var(--success);
+  --success-bg: #eaf4ec;
+  --warning: #966418;
+  --warning-fg: var(--warning);
+  --warning-bg: #fcf3df;
+  --risk: #b5463e;
+  --risk-fg: var(--risk);
+  --risk-bg: #fbecea;
+  --info: #315b75;
+  --info-fg: var(--info);
+  --info-bg: #e8f0f4;
+  /* Back-compat status aliases. */
+  --positive: var(--success);
+  --danger: var(--risk);
+  --danger-fg: var(--risk-fg);
+  --danger-bg: var(--risk-bg);
+
+  /* — Decision marks (capture workflow). — */
+  --pursue: var(--success);
+  --watch: var(--ink-secondary);
+  --pass: var(--ink-tertiary);
+
+  /* — Artifact / editor treatments (diff, citation, comment, provenance). — */
+  --diff-add-bg: #e5f2e9;
+  --diff-add-fg: #2f6b4f;
+  --diff-remove-bg: #fbe8e6;
+  --diff-remove-fg: var(--risk);
+  --diff-replace-bg: #e8f0f4;
+  --diff-replace-fg: var(--action);
+  --marker-unverified-line: var(--warning);
+  /* Legacy bg token — do not use for text highlight; prefer `--marker-unverified-line` underline/margin. */
+  --marker-unverified-bg: var(--warning-bg);
+  --marker-unverified-fg: var(--warning);
+  --cite-bg: #e8eef4;
+  --cite-fg: #3d5a73;
+  --cite-authoritative-fg: var(--ink);
+  --comment-bg: #fff3c9;
+  --comment-fg: var(--ink);
+  --rationale-fg: var(--ink-secondary);
+  --rationale-line: var(--border-strong);
+
+  /* — Confidence glyph palette — shape carries meaning; colour reinforces. — */
+  --conf-conflict: var(--risk);
+  --conf-uncertain: var(--warning);
+  --conf-verified: var(--success);
+  --conf-pending: var(--ink-tertiary);
+
+  /* — Fit meter scale. — */
+  --meter-track: rgba(10, 22, 34, 0.08);
+  --meter-fill: var(--action);
+
+  /* — Object-type icon palette (ontology glyphs). — */
+  --type-opportunity: #9a6a1e;
+  --type-contractor: #3d6b55;
+  --type-agency: #3f5f8a;
+  --type-contact: #8b5540;
+  --type-demand-signal: #b25a2b;
+  --type-contract: #4b5378;
+  --type-past-performance: #5c7048;
+  --type-requirement: #7e4c5c;
+  --type-meeting: #46696e;
+  --type-modification: #a04a38;
+  --type-prequalification: #417060;
+  --type-document: #6b6259;
+  --type-project: #6e4260;
+
+  --file-pdf: #b3352c;
+  --file-sheet: #2f7d4f;
+  --file-doc: #2f5f9e;
+  --file-slide: #c2762a;
+
+  /* Overlay scrim + control chrome. */
+  --scrim: rgba(6, 10, 14, 0.32);
+  --control-thumb-shadow: 0 1px 2px rgba(10, 22, 34, 0.14);
+  --toolbar-scroll-shadow: 0 1px 0 var(--line), 0 4px 12px rgba(10, 22, 34, 0.05);
+
+  /*
+   * Type scale (rem). Product hierarchy is sans-led; weight + size + tracking, not decoration.
+   * LABEL roles: single-line UI — tight leading, medium weight.
+   * COPY roles: multi-line prose — relaxed leading, regular weight.
+   */
+  --text-display: 2rem; /* 32 — rare hero line */
+  --text-page-title: 1.5rem; /* 24 — page identity */
+  --text-section: 1.125rem; /* 18 — section headers */
+  --text-subsection: 0.9375rem; /* 15 — panel titles */
+  --text-body: 0.875rem; /* 14 — workhorse */
+  --text-body-dense: 0.8125rem; /* 13 — matrix rows, dense tables */
+  --text-label: 0.75rem; /* 12 — control labels */
+  --text-meta: 0.75rem; /* 12 — timestamps, counts */
+  --text-micro: 0.6875rem; /* 11 — sparse eyebrows only */
+  --text-mono: 0.75rem; /* 12 — IDs, scores */
+  --text-prose: 0.9375rem; /* 15 — document / proposal prose */
+
+  /* Back-compat type scale aliases. */
+  --text-heading: var(--text-page-title);
+  --text-title: var(--text-subsection);
+  --text-large: 1rem;
+  --text-subtitle: var(--text-prose);
+  --text-small: var(--text-body-dense);
+  --text-caption: var(--text-meta);
+
+  --leading-display: 2.375rem; /* 38 */
+  --leading-page-title: 1.875rem; /* 30 */
+  --leading-section: 1.5rem; /* 24 */
+  --leading-subsection: 1.25rem; /* 20 */
+  --leading-body: 1.3125rem; /* 21 */
+  --leading-body-dense: 1.125rem; /* 18 */
+  --leading-label: 1rem; /* 16 */
+  --leading-meta: 1rem; /* 16 */
+  --leading-micro: 0.875rem; /* 14 */
+  --leading-mono: 1.125rem; /* 18 */
+  --leading-prose: 1.5rem; /* 24 */
+
+  /* Back-compat leading aliases. */
+  --leading-tight: 1.2;
+  --leading-label-legacy: 1.35;
+  --leading-snug: 1.385;
+  --leading-normal: 1.5;
+
+  --tracking-display: -0.02em;
+  --tracking-page-title: -0.015em;
+  --tracking-section: -0.012em;
+  --tracking-subsection: -0.01em;
+  --tracking-tight: -0.006em;
+  --tracking-label: 0.04em; /* sparse uppercase eyebrows only */
+
+  /* — Spacing: 4px base, visually centred on 8px rhythm. — */
+  --space-1: 0.25rem; /* 4 */
+  --space-2: 0.5rem; /* 8 */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.25rem; /* 20 */
+  --space-6: 1.5rem; /* 24 */
+  --space-8: 2rem; /* 32 */
+  --space-10: 2.5rem; /* 40 */
+  --space-12: 3rem; /* 48 */
+  --space-16: 4rem; /* 64 */
+
+  /* Floating menu rhythm: 8px shell, 4px item separation, 12×8px item insets. */
+  --menu-inset: var(--space-2);
+  --menu-item-gap: var(--space-1);
+  --menu-item-inset-x: var(--space-3);
+  --menu-item-inset-y: var(--space-2);
+
+  /* Back-compat spacing (older ladder referenced these steps). */
+  --space-7: var(--space-12);
+
+  /* — Geometry. Scale follows containment; pill only where semantically necessary. — */
+  --radius-xs: 6px; /* dense controls, tags, table cells */
+  --radius-sm: 8px;
+  --radius: 10px; /* controls, fields, disclosures */
+  --radius-md: 10px;
+  --radius-lg: 14px; /* dialogs, composer, large work objects */
+  --radius-xl: 14px;
+  --radius-2xl: 14px;
+  --radius-pill: 999px;
+
+  --measure: 66ch;
+  --measure-prose: 70ch;
+  --shell-max: 880px;
+  --topbar-h: 48px;
+  --rail-w: 48px;
+
+  /* — Density targets (row height guidance; padding/metadata changes, not font collapse). — */
+  --density-comfortable: 2.75rem; /* 44 */
+  --density-standard-min: 2.25rem; /* 36 */
+  --density-standard-max: 2.5rem; /* 40 */
+  --density-compact-min: 1.875rem; /* 30 */
+  --density-compact-max: 2rem; /* 32 */
+
+  /*
+   * Elevation: floating layers only. Everything anchored to a surface separates with hairlines.
+   * `--float-shadow` is the single product cast; borders carry the rest.
+   */
+  --float-shadow: 0 8px 24px rgba(10, 22, 34, 0.1);
+  --pop-shadow: var(--float-shadow);
+  --card-shadow: none;
+  --control-shadow: none;
+  --shadow-border: 0 0 0 1px var(--border-subtle);
+  --shadow-border-hover: 0 0 0 1px var(--border-strong);
+  --edge-hi: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --toast-shadow: var(--float-shadow);
+
+  /* Marketing-only cinematic elevation (not product). */
+  --mk-float-shadow:
+    0 2px 4px rgba(10, 22, 34, 0.05), 0 10px 24px -14px rgba(10, 22, 34, 0.14),
+    0 40px 72px -32px rgba(10, 22, 34, 0.2);
+
+  /*
+   * Motion curves — weight and precision, never bounce. Product surfaces use these three;
+   * `--ease-spring` remains for marketing cinematic arrivals only (overshoot).
+   */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.42, 0.64, 1); /* marketing-only overshoot */
+  --dur-micro: 90ms;
+  --dur-fast: 140ms;
+  --dur: 240ms;
+  --dur-slow: 420ms;
+}

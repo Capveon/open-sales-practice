@@ -1,0 +1,215 @@
+/*
+ * Bench theme. Cold light, hard corners, metal scribe.
+ * Cold bench, hard corners, glass only on things you can operate.
+ */
+
+:root {
+  --st-canvas: #f2f5f8;
+  --st-sheet: #ffffff;
+  --st-sheet-2: #e6ebf0;
+  --st-ink: #08090a;
+  --st-ink-2: #454c52;
+  --st-ink-3: #5c646b;
+  --st-line: rgba(10, 22, 34, 0.13);
+  --st-line-2: rgba(10, 22, 34, 0.22);
+  --st-metal-face: #dde4ea;
+  --st-metal-hi: #f4f7fa;
+  --st-metal-lo: #aab6c1;
+  --st-metal-scribe: rgba(10, 22, 34, 0.3);
+  --st-action: #2673a8;
+  --st-action-hi: #3d90c8;
+  --st-action-lo: #1d5b86;
+  --st-action-wash: #e7f1f8;
+  --st-ok: #23805b;
+  --st-risk: #c14b45;
+  --st-r: 0;
+  --st-ware-blur: blur(6px) saturate(1.12);
+  --st-ware-seat: 0 1px 2px rgba(10, 22, 34, 0.07), 0 8px 20px -12px rgba(10, 22, 34, 0.2);
+  --st-max: 1240px;
+  --st-gutter: 24px;
+  --st-nav-h: 60px;
+  --st-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Product tokens follow the landing page, not Glass. */
+  --canvas: var(--st-canvas);
+  --surface: var(--st-sheet);
+  --surface-raised: var(--st-sheet);
+  --surface-muted: #edf1f5;
+  --shell: transparent;
+  --ink: var(--st-ink);
+  --ink-secondary: var(--st-ink-2);
+  --ink-tertiary: var(--st-ink-3);
+  --action: var(--st-action);
+  --action-hover: var(--st-action-lo);
+  --action-subtle: var(--st-action-wash);
+  --action-border: #bcd6e8;
+  --border-subtle: var(--st-line);
+  --border-strong: var(--st-line-2);
+  --success: var(--st-ok);
+  --risk: var(--st-risk);
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-pill: 0;
+  --focus-ring: rgba(38, 115, 168, 0.45);
+  --selection: color-mix(in srgb, var(--st-action) 24%, transparent);
+}
+
+.st-eyebrow,
+.t-eyebrow {
+  font-family: var(--family-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--st-ink-3);
+  margin: 0;
+}
+
+.st-lede,
+.lede {
+  font-size: clamp(1.0625rem, 1.35vw, 1.1875rem);
+  line-height: 1.55;
+  letter-spacing: -0.011em;
+  color: var(--st-ink-2);
+  margin: 0;
+  max-width: 62ch;
+}
+
+.st-btn,
+.btn {
+  --st-glass-wall:
+    -1px 1px 0 0 rgba(120, 163, 197, 0.5), -2px 2px 0 0 rgba(93, 139, 177, 0.58),
+    -3px 3px 0 0 rgba(66, 112, 152, 0.66), -3.7px 3.7px 0 0 rgba(214, 234, 248, 0.92),
+    -4.3px 4.3px 0 0 rgba(247, 252, 255, 0.95), -4.8px 4.8px 0 0 rgba(14, 42, 66, 0.42);
+  box-shadow: var(--st-glass-body, 0 0 0 0 transparent), var(--st-glass-seat, var(--st-ware-seat));
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding-inline: 20px;
+  border-radius: 0;
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 520;
+  letter-spacing: -0.006em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  background: none;
+  color: var(--st-ink);
+  transition:
+    background var(--dur-fast) var(--st-ease),
+    box-shadow var(--dur-fast) var(--st-ease),
+    filter var(--dur-fast) var(--st-ease),
+    color var(--dur-fast) var(--st-ease),
+    transform var(--dur-fast) var(--st-ease);
+}
+.st-btn::before,
+.btn:not(.btn-quiet):not(.btn-danger)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+        105deg,
+        transparent 43%,
+        rgba(255, 255, 255, 0.5) 48%,
+        rgba(255, 255, 255, 0.5) 52%,
+        transparent 57%
+      )
+      no-repeat,
+    linear-gradient(115deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 24%, transparent 38%);
+  background-size: 320% 100%, 100% 100%;
+  background-position: 100% 0, 0 0;
+  opacity: 0.8;
+  transition: background-position var(--dur) var(--st-ease), opacity var(--dur-fast) var(--st-ease);
+}
+.st-btn:hover::before,
+.btn:not(.btn-quiet):not(.btn-danger):hover::before {
+  background-position: 0% 0, 0 0;
+  opacity: 1;
+}
+.st-btn:active,
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+.st-btn:disabled,
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.st-btn--primary,
+.btn-primary {
+  background: linear-gradient(180deg, rgba(38, 115, 168, 0.19) 0%, rgba(38, 115, 168, 0.23) 100%);
+  -webkit-backdrop-filter: var(--st-ware-blur);
+  backdrop-filter: var(--st-ware-blur);
+  color: var(--st-ink);
+  --st-glass-body:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.85), inset 0 -2px 0 0 rgba(38, 115, 168, 0.5),
+    inset 0 -8px 10px -7px rgba(38, 115, 168, 0.45), 0 0 0 1px rgba(16, 48, 74, 0.34),
+    var(--st-glass-wall, 0 0 0 0 transparent);
+}
+.st-btn--primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  --st-glass-seat: 0 1px 2px rgba(10, 22, 34, 0.08), 0 10px 26px -12px rgba(10, 22, 34, 0.28);
+}
+
+.st-btn--secondary,
+.btn-secondary {
+  background: linear-gradient(180deg, rgba(38, 115, 168, 0.05) 0%, rgba(38, 115, 168, 0.09) 100%);
+  -webkit-backdrop-filter: var(--st-ware-blur);
+  backdrop-filter: var(--st-ware-blur);
+  color: var(--st-ink);
+  --st-glass-body:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.92), inset 0 -2px 0 0 rgba(38, 115, 168, 0.34),
+    inset 0 -8px 10px -7px rgba(38, 115, 168, 0.3), 0 0 0 1px rgba(16, 48, 74, 0.26),
+    var(--st-glass-wall, 0 0 0 0 transparent);
+}
+.st-btn--secondary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.st-btn--sm,
+.btn-sm {
+  height: 34px;
+  padding-inline: 14px;
+  font-size: 0.8125rem;
+}
+
+.btn-quiet {
+  background: transparent;
+  box-shadow: none;
+  color: var(--st-ink-2);
+  height: 42px;
+}
+.btn-quiet:hover:not(:disabled) {
+  color: var(--st-ink);
+  background: color-mix(in srgb, var(--st-ink) 6%, transparent);
+}
+
+.btn-danger {
+  background: transparent;
+  box-shadow: none;
+  color: var(--st-risk);
+  height: 42px;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #faeae9;
+}

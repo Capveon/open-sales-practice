@@ -1,0 +1,39 @@
+# Copy this file to profiles/packs/<pack-id>/<profile-id>.yaml
+# Pack folder must also contain pack.yaml. IDs are lowercase kebab-case.
+#
+# id: acme-plant-manager
+# pack: manufacturers
+# name: ...
+id: _template
+pack: manufacturers
+name: Template (do not call)
+title: Title
+organization: Organization
+summary: One line for the roster card.
+repBrief: What the seller is trying to do on this call. Shown before dial. Not spoken by the buyer.
+voice: ash
+cast:
+  gender: male
+  age: mid
+  region: general
+opening: engaged
+personality:
+  warmth: 0.5
+  patience: 0.5
+  skepticism: 0.5
+  verbosity: 0.5
+  hostility: 0.15
+  timePressure: 0.4
+attributes:
+  example: "free-form facts the prompt can use"
+vernacular:
+  - example-noun
+bannedSellerPhrases:
+  - platform
+facts:
+  - Something they know.
+hangupRules:
+  - When they should end the call.
+firstLine: "Hello."
+scoring:
+  rubric: []

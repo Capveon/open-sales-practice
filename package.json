@@ -1,0 +1,23 @@
+{
+  "name": "open-sales-practice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source voice sales-call practice: drop-in buyer profiles, LiveKit voice, scored debriefs, leaderboard.",
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "pnpm --filter @osp/web dev",
+    "dev:web": "pnpm --filter @osp/web dev",
+    "dev:agent": "pnpm --filter @osp/agent dev",
+    "dev:all": "pnpm -r --parallel --filter @osp/web --filter @osp/agent dev",
+    "build": "pnpm -r build",
+    "db:migrate": "pnpm --filter @osp/web db:migrate",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @osp/core test",
+    "lint": "pnpm -r lint"
+  }
+}
