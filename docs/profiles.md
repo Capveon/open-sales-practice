@@ -1,6 +1,8 @@
 # Profiles
 
-A **pack** is a folder. A **profile** is a YAML file in that folder (except `pack.yaml` and files starting with `_`).
+A **pack** is a folder. A **profile** is a YAML file in that folder (except `pack.yaml` and files starting with `_`). Restart the web app (and the agent, if it already loaded packs) after you add a file.
+
+The roster reads whatever `loadPacks()` finds. Local disk first; if that is empty (production image), the build-time snapshot in `packages/core/src/bundled-profiles.json`.
 
 ```
 profiles/packs/examples/pack.yaml

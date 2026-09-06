@@ -8,13 +8,15 @@ browser  --WebRTC-->  LiveKit room  <--agent--  OpenAI Realtime
                     +-- @osp/core (YAML profiles, prompts, rubric)
 ```
 
-The browser publishes the mic and plays the buyer. The agent is an OpenAI Realtime session (`gpt-realtime`, semantic VAD) dispatched into the room by name `open-sales-practice`. Production web is Next.js on Node (Capveon: ECS Fargate).
+Two processes. The browser publishes the mic and plays the buyer. The agent is an OpenAI Realtime session (`gpt-realtime`, semantic VAD) that LiveKit dispatches into the room by name **`open-sales-practice`**. Next.js never speaks.
+
+Local: `pnpm dev` (web, :3100) + `pnpm dev:agent` (worker). Production web is Node (Capveon: ECS Fargate). Production agent is LiveKit Cloud (`lk agent deploy`).
 
 ## Tape
 
 Two streams, merged by the web app:
 
-1. Live captions on `lk.transcription`. Each utterance has a `lk.segment_id`. Interims update that segment in place; the final stream (or the end of an unmarked stream) commits it. Typed lines go on `lk.chat`.
+1. Live captions on `lk.transcription`. Each utterance has a `lk.segment_id`. Interims update that segment in place; growing STT prefixes collapse into one turn.
 2. The agent's `session.history`, published on `osp.transcript` whenever a conversation item is committed. Hangup and shutdown send the same snapshot so scoring does not depend on the browser catching every caption.
 
 Hangup merges both sides into `calls.transcript_json`, then grades that tape when the seller scores.

@@ -25,8 +25,9 @@ import {
 } from "@osp/core";
 import { getProfile } from "@osp/core/registry";
 
-dotenv.config({ path: ".env.local" });
+dotenv.config({ path: "../web/.env.local" });
 dotenv.config({ path: "../../.env.local" });
+dotenv.config({ path: ".env.local" });
 
 type RoomMeta = {
   callId?: string;

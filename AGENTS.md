@@ -1,6 +1,6 @@
 # Agent notes
 
-pnpm workspace: `packages/core`, `apps/web`, `apps/agent`.
+Setup for humans: [README.md](README.md). pnpm workspace: `packages/core`, `apps/web`, `apps/agent`.
 
 - Personas: `profiles/packs/**/*.yaml`. Loader is `loadPacks()` in `packages/core/src/registry.ts`.
 - Prompts: `buildBuyerInstructions`. Buyer hangup is LiveKit `end_call` (`deleteRoom`). The handset shows a status line and a Score button; it does not hang up for the seller.

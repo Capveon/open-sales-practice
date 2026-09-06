@@ -11,7 +11,7 @@ Global dimensions (always on): one job not a product, concrete questions, listen
 
 Profile YAML can add more under `scoring.rubric`.
 
-The hangup route grades the **full merged tape** (browser captions + agent `session.history`) with OpenAI (`gpt-4.1-mini`). The Worker must have `OPENAI_API_KEY`. On a missing key, empty tape, or model failure it falls back to the heuristic. Debrief still shows the transcript if the grade is late or fails; it retries `/api/calls/:id/score`.
+The hangup route grades the **full merged tape** (browser captions + agent `session.history`) with OpenAI (`gpt-4.1-mini`) on the **web** host. That process needs `OPENAI_API_KEY` as well as the agent. On a missing key, empty tape, or model failure it falls back to the heuristic. Debrief still shows the transcript if the grade is late or fails; it retries `/api/calls/:id/score`.
 
 ## Elo
 

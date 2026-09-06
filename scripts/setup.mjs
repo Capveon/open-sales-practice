@@ -12,4 +12,7 @@ if (!existsSync(dest)) {
 } else {
   console.log("apps/web/.env.local already exists");
 }
-console.log("next: fill Clerk, OpenAI, and LiveKit in apps/web/.env.local, then pnpm install && pnpm --filter @osp/agent dev && pnpm dev");
+console.log("next: fill Clerk, OpenAI, and LiveKit in apps/web/.env.local");
+console.log("      then: pnpm db:migrate   # once");
+console.log("            pnpm dev:agent    # terminal 1 — leave running");
+console.log("            pnpm dev          # terminal 2 — http://localhost:3100");

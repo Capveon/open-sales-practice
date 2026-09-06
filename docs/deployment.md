@@ -1,38 +1,37 @@
 # Deployment
 
-Web is Next.js on Node (Capveon: ECS Fargate behind the same ALB as `app.capveon.ai`). Voice is LiveKit + an agent process.
+Two runtimes: **Next.js on Node** (handset, Clerk, score) and a **LiveKit agent process** (the buyer). They share a LiveKit Cloud project. They do not have to share a machine.
 
-## Keys
+## Web
 
-See [keys.md](keys.md). Bake `NEXT_PUBLIC_*` at **build** time. Put secrets in the host secret store. Scoring runs on the web host, so `OPENAI_API_KEY` must be there as well as on the agent.
+`apps/web` is a normal Next app (`next build` / `next start`, port 3000 in the Docker image, 3100 in `pnpm dev`).
+
+Bake `NEXT_PUBLIC_*` at **build** time. Runtime secrets:
+
+- `CLERK_SECRET_KEY`
+- `OPENAI_API_KEY` (grading)
+- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+- `DATABASE_URL`
+
+Image: `apps/web/Dockerfile` (linux/arm64 standalone). It snapshots YAML via `write-bundle.ts` so production does not need the `profiles/` tree on disk. Never commit a non-empty `packages/core/src/bundled-profiles.json` if it contains private packs — restore `[]` after a local bundle.
+
+Health: `GET /api/health` (no auth). Point a load balancer there.
 
 ## Database
+
+Local: SQLite, `DATABASE_URL=file:./data/osp.sqlite`, then `pnpm db:migrate`.
+
+Postgres:
 
 ```bash
 DATABASE_URL=postgres://... DATABASE_ADMIN_URL=postgres://... pnpm db:migrate
 ```
 
-`OSP_DB_SCHEMA` defaults to `osp`. Grant the runtime role `SELECT, INSERT, UPDATE, DELETE` on that schema after migrate.
-
-## Capveon production (AWS)
-
-Same account and cluster as the monorepo (`capveon-prod`). Terraform in `../monorepo/infra/terraform` owns the `practice` ECR repo, ECS service, ALB host rule, and ACM cert. Secrets live in `capveon/prod/app/practice` (not the operator-glass bundle — different Clerk app).
-
-Build on a machine that has `profiles/private`, then roll:
-
-```bash
-# once: populate the secret, then
-chmod +x scripts/deploy-aws.sh
-AWS_PROFILE=capveon ./scripts/deploy-aws.sh
-```
-
-`practice.capveon.ai` is a Cloudflare CNAME to the Capveon ALB, proxied, SSL Full (strict) — same as `app.capveon.ai`.
-
-Company buyers go in `profiles/private` on the machine that builds. `write-bundle.ts` snapshots packs into `packages/core/src/bundled-profiles.json` inside the image. Restore the committed empty `[]` file if you ran the script on the host. Never commit a bundle that includes private YAML.
+Schema defaults to `osp` (`OSP_DB_SCHEMA`). After migrate, grant the runtime role `SELECT, INSERT, UPDATE, DELETE` on that schema. Set `OSP_SKIP_MIGRATE=1` on the running app if CI/CD already migrated.
 
 ## Agent
 
-From the repo root (Dockerfile context is the monorepo):
+From the **repo root**. Dockerfile context is this repo (`Dockerfile` at the root is the agent). `--skip-sdk-check` is required because root `package.json` is the workspace, not `@livekit/agents`.
 
 ```bash
 lk cloud auth
@@ -40,8 +39,22 @@ lk agent create --skip-sdk-check --region us-east
 lk agent deploy --skip-sdk-check --region us-east
 ```
 
-`--skip-sdk-check` is required because the root `package.json` is the workspace, not `@livekit/agents`. Keep `tsx` on PATH in the image (do not `pnpm prune --prod`).
+Keep `tsx` on PATH in the image (do not `pnpm prune --prod`).
 
-`OPENAI_API_KEY` is an agent secret. LiveKit injects URL/key/secret at runtime. Do not put those in the image. Bundle profiles before deploy, then restore the committed empty file.
+`OPENAI_API_KEY` is an **agent secret** in LiveKit. LiveKit injects URL/key/secret at runtime. Do not put those in the image.
 
-The worker registers as `open-sales-practice`. The web app dispatches that name into each room.
+Bundle private YAML before deploy if the agent should speak those buyers, then restore the committed empty bundle file.
+
+The worker must register as `open-sales-practice`. The web app dispatches that name into each room.
+
+## Capveon production
+
+Same AWS account and cluster as the product monorepo (`capveon-prod`). Terraform there owns ECR `practice`, the ECS service, the ALB host rule, and the ACM cert. Secrets: `capveon/prod/app/practice` (not the operator-glass bundle — different Clerk app).
+
+Build on a machine that has `profiles/private`:
+
+```bash
+AWS_PROFILE=capveon ./scripts/deploy-aws.sh
+```
+
+`practice.capveon.ai` is a Cloudflare CNAME to that ALB, proxied, SSL Full (strict).
