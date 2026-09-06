@@ -12,6 +12,8 @@ import {
   type TranscriptTurn,
 } from "@osp/core";
 
+const localDisconnects = new WeakSet<Room>();
+
 export type LiveKitCreds = { url: string; token: string };
 
 export type AgentCue = "connecting" | "listening" | "thinking" | "speaking";
@@ -126,11 +128,16 @@ export async function connectVoiceRoom(
     if (other) handlers.onCue("speaking");
   });
 
-  let heardBuyer = room.remoteParticipants.size > 0;
+  let heardBuyer = false;
   let hangupTimer: ReturnType<typeof setTimeout> | undefined;
   const scheduleRemoteHangup = () => {
-    if (!heardBuyer || hangupTimer) return;
-    hangupTimer = setTimeout(() => handlers.onRemoteHangup(), 700);
+    if (localDisconnects.has(room) || hangupTimer) return;
+    if (!heardBuyer) return;
+    if (room.remoteParticipants.size > 0) return;
+    hangupTimer = setTimeout(() => {
+      if (localDisconnects.has(room)) return;
+      handlers.onRemoteHangup();
+    }, 400);
   };
   room.on(RoomEvent.ParticipantConnected, () => {
     heardBuyer = true;
@@ -142,6 +149,7 @@ export async function connectVoiceRoom(
   await room.startAudio().catch(() => undefined);
   await room.localParticipant.setMicrophoneEnabled(true);
 
+  if (room.remoteParticipants.size > 0) heardBuyer = true;
   room.remoteParticipants.forEach((p) => {
     const cue = cueFromAttributes(p.attributes);
     if (cue) handlers.onCue(cue);
@@ -155,4 +163,9 @@ export async function connectVoiceRoom(
 
 export async function sendChatToAgent(room: Room, text: string) {
   await room.localParticipant.sendText(text, { topic: "lk.chat" });
+}
+
+export function disconnectVoiceRoom(room: Room) {
+  localDisconnects.add(room);
+  room.disconnect();
 }

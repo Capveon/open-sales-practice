@@ -17,7 +17,7 @@ export function parseTranscriptJson(raw: string | null | undefined): TranscriptT
     return parsed.filter((item): item is TranscriptTurn => {
       if (!item || typeof item !== "object") return false;
       const row = item as TranscriptTurn;
-      return (row.role === "seller" || row.role === "buyer") && typeof row.text === "string";
+      return (row.role === "seller" || row.role === "buyer" || row.role === "status") && typeof row.text === "string";
     });
   } catch {
     return [];

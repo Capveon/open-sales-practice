@@ -86,7 +86,7 @@ export const PackSchema = z.object({
 export type Pack = z.infer<typeof PackSchema>;
 
 export const TranscriptTurnSchema = z.object({
-  role: z.enum(["seller", "buyer"]),
+  role: z.enum(["seller", "buyer", "status"]),
   text: z.string(),
   at: z.number(),
 });

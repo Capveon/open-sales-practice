@@ -17,11 +17,11 @@ Two streams, merged by the web app:
 1. Live captions on `lk.transcription`. Each utterance has a `lk.segment_id`. Interims update that segment in place; the final stream (or the end of an unmarked stream) commits it. Typed lines go on `lk.chat`.
 2. The agent's `session.history`, published on `osp.transcript` whenever a conversation item is committed. Hangup and shutdown send the same snapshot so scoring does not depend on the browser catching every caption.
 
-Hangup merges both sides into `calls.transcript_json`, then grades that tape.
+Hangup merges both sides into `calls.transcript_json`, then grades that tape when the seller scores.
 
 ## Call end
 
-The buyer calls LiveKit's `end_call` tool (`deleteRoom: true`, ignored during the opening line). The room drop is what hangs up the phone. The seller hangup button disconnects and POSTs `/api/calls/:id/end`.
+The buyer calls LiveKit's `end_call` tool (`deleteRoom: true`, ignored during the opening line). The room drop freezes the handset: a status line on the tape (`{name} ended the call`) and a **Score the call** button. The seller is not hanging up a phone — they score. Scoring POSTs `/api/calls/:id/end` and opens debrief.
 
 ## Extensibility
 

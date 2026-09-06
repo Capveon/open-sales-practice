@@ -163,6 +163,13 @@ export function Debrief({ id }: { id: string }) {
             <p className="t-meta">No lines captured.</p>
           ) : (
             call.transcript.map((t, i) => {
+              if (t.role === "status") {
+                return (
+                  <p key={`${t.at}-${i}`} className="tape-status">
+                    {t.text}
+                  </p>
+                );
+              }
               const clip =
                 t.role === "buyer" ? byRole.buyer[buyerI++] : byRole.seller[sellerI++];
               return (

@@ -315,6 +315,15 @@
 .phone__line[data-live="true"] {
   color: var(--st-ink-3);
 }
+.phone__line--status {
+  margin: 18px 0 8px;
+  text-align: center;
+  font-family: var(--family-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--st-ink-3);
+}
 .phone__who {
   display: block;
   font-family: var(--family-mono);
@@ -376,18 +385,13 @@
   transform: none;
   filter: none;
 }
-.phone-btn--hang[aria-busy="true"] {
-  background: linear-gradient(180deg, rgba(193, 75, 69, 0.28) 0%, rgba(193, 75, 69, 0.36) 100%);
+.phone-btn--score {
+  width: auto;
+  min-width: 148px;
+  padding: 0 16px;
 }
-.phone-btn--hang {
-  width: 120px;
-  background: linear-gradient(180deg, rgba(193, 75, 69, 0.16) 0%, rgba(193, 75, 69, 0.24) 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.85),
-    inset 0 -2px 0 0 rgba(193, 75, 69, 0.5),
-    0 0 0 1px rgba(90, 24, 22, 0.28),
-    var(--st-glass-wall);
-  color: var(--st-risk);
+.phone-btn--score[aria-busy="true"] {
+  opacity: 0.84;
 }
 
 .board-bar {
@@ -489,6 +493,15 @@
 .bubble[data-role="seller"] {
   background: var(--st-action-wash);
   align-self: flex-end;
+}
+.tape-status {
+  align-self: center;
+  margin: 4px 0;
+  font-family: var(--family-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--st-ink-3);
 }
 .tape-audio {
   display: block;

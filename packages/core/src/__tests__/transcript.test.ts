@@ -24,10 +24,14 @@ describe("transcription parsing", () => {
       parseTranscriptJson(
         JSON.stringify([
           { role: "buyer", text: "Yeah", at: 1 },
+          { role: "status", text: "Caleb ended the call", at: 3 },
           { role: "nope", text: "drop", at: 2 },
         ]),
       ),
-    ).toEqual([{ role: "buyer", text: "Yeah", at: 1 }]);
+    ).toEqual([
+      { role: "buyer", text: "Yeah", at: 1 },
+      { role: "status", text: "Caleb ended the call", at: 3 },
+    ]);
   });
 });
 

@@ -12,6 +12,7 @@ import {
 } from "@osp/core";
 import {
   connectVoiceRoom,
+  disconnectVoiceRoom,
   sendChatToAgent,
   type AgentCue,
   type LiveKitCreds,
@@ -31,7 +32,7 @@ type CallPayload = {
   };
 };
 
-type Phase = "connecting" | "speaking" | "listening" | "thinking" | "muted" | "hanging";
+type Phase = "connecting" | "speaking" | "listening" | "thinking" | "muted" | "ended" | "scoring";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2);
@@ -43,6 +44,10 @@ function clock(ms: number) {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function firstName(name: string) {
+  return name.split(" ")[0] ?? name;
 }
 
 export function CallSession({ id }: { id: string }) {
@@ -57,13 +62,12 @@ export function CallSession({ id }: { id: string }) {
   const [tape, setTape] = useState<TapeLine[]>([]);
   const scroller = useRef<HTMLDivElement>(null);
   const roomRef = useRef<Room | null>(null);
-  const hungRef = useRef(false);
+  const scoringRef = useRef(false);
+  const endedRef = useRef(false);
   const mutedRef = useRef(false);
-  const hangupRef = useRef<() => void>(() => undefined);
+  const buyerEndedRef = useRef<() => void>(() => undefined);
   const tapeRef = useRef<TapeLine[]>([]);
   const agentTapeRef = useRef<TranscriptTurn[]>([]);
-
-  const setCallPhase = (next: Phase) => setPhase(next);
 
   const persistTranscript = useCallback(
     (turns: TranscriptTurn[]) => {
@@ -85,9 +89,16 @@ export function CallSession({ id }: { id: string }) {
     [persistTranscript],
   );
 
+  const dropRoom = useCallback(() => {
+    if (roomRef.current) {
+      disconnectVoiceRoom(roomRef.current);
+      roomRef.current = null;
+    }
+  }, []);
+
   const sendTyped = useCallback(async () => {
     const text = draft.trim();
-    if (!text || hungRef.current || !roomRef.current) return;
+    if (!text || endedRef.current || scoringRef.current || !roomRef.current) return;
     setDraft("");
     replaceTape(
       upsertSegment(tapeRef.current, {
@@ -137,7 +148,7 @@ export function CallSession({ id }: { id: string }) {
       sessionStorage.setItem(`osp:livekit:${id}`, JSON.stringify(lk));
       const room = await connectVoiceRoom(lk, {
         onCaption: (line) => {
-          if (hungRef.current) return;
+          if (endedRef.current || scoringRef.current) return;
           replaceTape(
             upsertSegment(tapeRef.current, {
               role: line.role,
@@ -149,25 +160,26 @@ export function CallSession({ id }: { id: string }) {
           );
         },
         onTape: (turns) => {
+          if (endedRef.current || scoringRef.current) return;
           agentTapeRef.current = mergeTranscripts(agentTapeRef.current, turns);
           persistTranscript(mergeTranscripts(commitLiveLines(tapeRef.current), agentTapeRef.current));
         },
         onCue: (cue: AgentCue) => {
-          if (hungRef.current || mutedRef.current) return;
-          if (cue === "speaking") setCallPhase("speaking");
-          else if (cue === "thinking") setCallPhase("thinking");
-          else setCallPhase("listening");
+          if (endedRef.current || scoringRef.current || mutedRef.current) return;
+          if (cue === "speaking") setPhase("speaking");
+          else if (cue === "thinking") setPhase("thinking");
+          else setPhase("listening");
         },
         onRemoteHangup: () => {
-          hangupRef.current();
+          buyerEndedRef.current();
         },
       });
       if (!alive) {
-        room.disconnect();
+        disconnectVoiceRoom(room);
         return;
       }
       roomRef.current = room;
-      setCallPhase("listening");
+      setPhase("listening");
     };
 
     void run().catch((e: Error) => {
@@ -178,8 +190,10 @@ export function CallSession({ id }: { id: string }) {
     return () => {
       alive = false;
       ac.abort();
-      roomRef.current?.disconnect();
-      roomRef.current = null;
+      if (roomRef.current) {
+        disconnectVoiceRoom(roomRef.current);
+        roomRef.current = null;
+      }
     };
   }, [id, persistTranscript, replaceTape, router]);
 
@@ -188,21 +202,42 @@ export function CallSession({ id }: { id: string }) {
   }, [tape]);
 
   useEffect(() => {
-    if (!call?.startedAt) return;
+    if (!call?.startedAt || endedRef.current || phase === "ended" || phase === "scoring") return;
     const tick = () => setElapsed(Date.now() - call.startedAt);
     tick();
     const t = window.setInterval(tick, 250);
     return () => window.clearInterval(t);
-  }, [call?.startedAt]);
+  }, [call?.startedAt, phase]);
 
-  const hangup = useCallback(async () => {
-    if (hungRef.current) return;
-    hungRef.current = true;
-    setCallPhase("hanging");
-    const turns = mergeTranscripts(commitLiveLines(tapeRef.current), agentTapeRef.current);
-    roomRef.current?.disconnect();
-    roomRef.current = null;
+  const freezeCall = useCallback(
+    (statusText: string) => {
+      if (endedRef.current) return;
+      endedRef.current = true;
+      dropRoom();
+      replaceTape(
+        upsertSegment(tapeRef.current, {
+          role: "status",
+          text: statusText,
+          at: Date.now(),
+          segmentId: "call-ended",
+          live: false,
+        }),
+      );
+      setPhase("ended");
+    },
+    [dropRoom, replaceTape],
+  );
+
+  const scoreCall = useCallback(async () => {
+    if (scoringRef.current) return;
+    scoringRef.current = true;
+    setPhase("scoring");
+    if (!endedRef.current) {
+      endedRef.current = true;
+      dropRoom();
+    }
     try {
+      const turns = mergeTranscripts(commitLiveLines(tapeRef.current), agentTapeRef.current);
       const res = await fetch(`/api/calls/${id}/end`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -210,37 +245,42 @@ export function CallSession({ id }: { id: string }) {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        hungRef.current = false;
-        setError(typeof json.error === "string" ? json.error : "Could not hang up.");
-        setCallPhase("listening");
+        scoringRef.current = false;
+        endedRef.current = true;
+        setError(typeof json.error === "string" ? json.error : "Could not score the tape.");
+        setPhase("ended");
         return;
       }
       router.replace(`/call/${id}/debrief`);
     } catch (err) {
-      hungRef.current = false;
-      setError(err instanceof Error ? err.message : "Could not hang up.");
-      setCallPhase("listening");
+      scoringRef.current = false;
+      endedRef.current = true;
+      setError(err instanceof Error ? err.message : "Could not score the tape.");
+      setPhase("ended");
     }
-  }, [id, router]);
+  }, [dropRoom, id, router]);
 
-  hangupRef.current = () => {
-    void hangup();
+  buyerEndedRef.current = () => {
+    const name = call?.profile.name ? firstName(call.profile.name) : "They";
+    freezeCall(`${name} ended the call`);
   };
 
   useEffect(() => {
     if (!call) return;
+    if (endedRef.current || scoringRef.current) return;
     if (elapsed / 1000 < maxSeconds) return;
-    void hangup();
-  }, [call, elapsed, hangup, maxSeconds]);
+    freezeCall("Time's up");
+  }, [call, elapsed, freezeCall, maxSeconds]);
 
   const toggleMute = async () => {
+    if (endedRef.current || scoringRef.current) return;
     const next = !muted;
     setMuted(next);
     mutedRef.current = next;
     if (roomRef.current) {
       await roomRef.current.localParticipant.setMicrophoneEnabled(!next);
     }
-    setCallPhase(next ? "muted" : "listening");
+    setPhase(next ? "muted" : "listening");
   };
 
   if (error && !call) {
@@ -259,6 +299,7 @@ export function CallSession({ id }: { id: string }) {
     );
   }
 
+  const live = phase !== "ended" && phase !== "scoring";
   const cue =
     phase === "connecting"
       ? "Calling…"
@@ -270,13 +311,15 @@ export function CallSession({ id }: { id: string }) {
             ? "Thinking"
             : phase === "muted"
               ? "Muted"
-              : "Hanging up";
-  const buyerName = call.profile.name.split(" ")[0] ?? call.profile.name;
+              : phase === "scoring"
+                ? "Scoring…"
+                : "Call ended";
+  const buyerName = firstName(call.profile.name);
 
   return (
     <main className="phone">
       <header className="phone__status">
-        <span className="status-dot" data-off={call.status !== "live" || phase === "hanging"} />
+        <span className="status-dot" data-off={!live} />
         <span className="t-eyebrow">{cue}</span>
         <span className="phone__timer">{clock(elapsed)}</span>
       </header>
@@ -298,55 +341,63 @@ export function CallSession({ id }: { id: string }) {
         {tape.length === 0 ? (
           <p className="phone__line phone__line--empty">Waiting for the first line…</p>
         ) : (
-          tape.map((t, i) => (
-            <p
-              key={t.segmentId ?? `${t.at}-${i}`}
-              className="phone__line"
-              data-role={t.role}
-              data-live={t.live ? "true" : undefined}
-            >
-              <span className="phone__who">{t.role === "buyer" ? buyerName : "You"}</span>
-              {t.text}
-            </p>
-          ))
+          tape.map((t, i) =>
+            t.role === "status" ? (
+              <p key={t.segmentId ?? `${t.at}-${i}`} className="phone__line phone__line--status">
+                {t.text}
+              </p>
+            ) : (
+              <p
+                key={t.segmentId ?? `${t.at}-${i}`}
+                className="phone__line"
+                data-role={t.role}
+                data-live={t.live ? "true" : undefined}
+              >
+                <span className="phone__who">{t.role === "buyer" ? buyerName : "You"}</span>
+                {t.text}
+              </p>
+            ),
+          )
         )}
       </section>
 
       <footer className="phone__dock">
-        <form
-          className="call-compose"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void sendTyped();
-          }}
-        >
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Type if you need to"
-            aria-label="Send a line"
-            disabled={phase === "hanging"}
-            autoComplete="off"
-          />
-        </form>
+        {live ? (
+          <form
+            className="call-compose"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void sendTyped();
+            }}
+          >
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Type if you need to"
+              aria-label="Send a line"
+              autoComplete="off"
+            />
+          </form>
+        ) : null}
+        {live ? (
+          <button
+            type="button"
+            className="phone-btn"
+            data-on={muted}
+            onClick={() => void toggleMute()}
+            aria-pressed={muted}
+          >
+            <span className="t-eyebrow">{muted ? "Unmute" : "Mute"}</span>
+          </button>
+        ) : null}
         <button
           type="button"
-          className="phone-btn"
-          data-on={muted}
-          onClick={() => void toggleMute()}
-          aria-pressed={muted}
-          disabled={phase === "hanging"}
+          className="phone-btn phone-btn--score"
+          onClick={() => void scoreCall()}
+          disabled={phase === "scoring"}
+          aria-busy={phase === "scoring"}
         >
-          <span className="t-eyebrow">{muted ? "Unmute" : "Mute"}</span>
-        </button>
-        <button
-          type="button"
-          className="phone-btn phone-btn--hang"
-          onClick={() => void hangup()}
-          disabled={phase === "hanging"}
-          aria-busy={phase === "hanging"}
-        >
-          <span className="t-eyebrow">{phase === "hanging" ? "Hanging up…" : "Hang up"}</span>
+          <span className="t-eyebrow">{phase === "scoring" ? "Scoring…" : "Score the call"}</span>
         </button>
       </footer>
     </main>

@@ -204,6 +204,7 @@ export function heuristicScore(
 
 export function scoringPrompt(profile: Profile, turns: TranscriptTurn[]): string {
   const transcript = turns
+    .filter((t) => t.role === "seller" || t.role === "buyer")
     .map((t) => `${t.role === "seller" ? "SELLER" : "BUYER"}: ${t.text}`)
     .join("\n");
   return `You grade a cold sales call. The seller is practicing. The buyer was a simulated ${profile.title} named ${profile.name}.
