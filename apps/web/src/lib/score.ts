@@ -26,6 +26,7 @@ export async function scoreCall(
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(20_000),
       body: JSON.stringify({
         model: SCORE_MODEL,
         temperature: 0.2,

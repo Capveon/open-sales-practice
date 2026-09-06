@@ -8,7 +8,7 @@ browser  --WebRTC-->  LiveKit room  <--agent--  OpenAI Realtime
                     +-- @osp/core (YAML profiles, prompts, rubric)
 ```
 
-The browser publishes the mic and plays the buyer. The agent is an OpenAI Realtime session (`gpt-realtime`, semantic VAD) dispatched into the room by name `open-sales-practice`.
+The browser publishes the mic and plays the buyer. The agent is an OpenAI Realtime session (`gpt-realtime`, semantic VAD) dispatched into the room by name `open-sales-practice`. Production web is Next.js on Node (Capveon: ECS Fargate).
 
 ## Tape
 

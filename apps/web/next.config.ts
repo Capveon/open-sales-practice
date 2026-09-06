@@ -5,6 +5,8 @@ import type { NextConfig } from "next";
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: path.join(here, "../.."),
   transpilePackages: ["@osp/core"],
   serverExternalPackages: [
     "@libsql/client",
@@ -12,15 +14,6 @@ const nextConfig: NextConfig = {
     "yaml",
     "postgres",
   ],
-  webpack: (config) => {
-    if (process.env.OSP_CF_BUILD === "1") {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        "@libsql/client": path.join(here, "src/lib/libsql-stub.ts"),
-      };
-    }
-    return config;
-  },
 };
 
 export default nextConfig;

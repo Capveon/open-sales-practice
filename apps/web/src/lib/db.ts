@@ -79,24 +79,8 @@ function usesPostgres(url: string): boolean {
   return /^(postgres|postgresql):\/\//.test(url);
 }
 
-async function hyperdriveUrl(): Promise<string | undefined> {
-  try {
-    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-    const { env } = await getCloudflareContext({ async: true });
-    const hd = (env as { HYPERDRIVE?: { connectionString?: string } }).HYPERDRIVE;
-    return hd?.connectionString;
-  } catch {
-    return undefined;
-  }
-}
-
 async function resolveRuntimeUrl(): Promise<string> {
   if (cachedRuntimeUrl) return cachedRuntimeUrl;
-  const fromHd = await hyperdriveUrl();
-  if (fromHd) {
-    cachedRuntimeUrl = fromHd;
-    return fromHd;
-  }
   const fromEnv = process.env.DATABASE_URL?.trim();
   if (fromEnv) {
     cachedRuntimeUrl = fromEnv;
@@ -160,13 +144,6 @@ function sslFor(url: string) {
       return { rejectUnauthorized: false };
     }
     if (host === "localhost" || host === "127.0.0.1") return false;
-    if (
-      host.includes("hyperdrive") ||
-      host.endsWith(".hyperdrive.local") ||
-      host.endsWith(".hyperdrive.cloudflare.com")
-    ) {
-      return false;
-    }
     return { rejectUnauthorized: false };
   } catch {
     return false;
@@ -196,27 +173,19 @@ function sqliteClient(url: string): Client {
   return sqlite;
 }
 
-function isWorkerd(): boolean {
-  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
-}
-
 function pgClient(url: string, cache: "runtime" | "admin"): Sql {
-  if (!isWorkerd()) {
-    if (cache === "runtime" && pg) return pg;
-    if (cache === "admin" && pgAdmin) return pgAdmin;
-  }
+  if (cache === "runtime" && pg) return pg;
+  if (cache === "admin" && pgAdmin) return pgAdmin;
   const sql = postgres(stripSslMode(url), {
     ssl: sslFor(url),
-    max: 1,
+    max: 5,
     prepare: false,
     fetch_types: false,
     connect_timeout: 10,
     idle_timeout: 20,
   });
-  if (!isWorkerd()) {
-    if (cache === "runtime") pg = sql;
-    else pgAdmin = sql;
-  }
+  if (cache === "runtime") pg = sql;
+  else pgAdmin = sql;
   return sql;
 }
 

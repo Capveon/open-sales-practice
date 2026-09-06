@@ -1,6 +1,6 @@
 # Deployment
 
-Web is Next.js (Workers via OpenNext). Voice is LiveKit + an agent process.
+Web is Next.js on Node (Capveon: ECS Fargate behind the same ALB as `app.capveon.ai`). Voice is LiveKit + an agent process.
 
 ## Keys
 
@@ -14,18 +14,21 @@ DATABASE_URL=postgres://... DATABASE_ADMIN_URL=postgres://... pnpm db:migrate
 
 `OSP_DB_SCHEMA` defaults to `osp`. Grant the runtime role `SELECT, INSERT, UPDATE, DELETE` on that schema after migrate.
 
-## Cloudflare
+## Capveon production (AWS)
 
-From `apps/web`:
+Same account and cluster as the monorepo (`capveon-prod`). Terraform in `../monorepo/infra/terraform` owns the `practice` ECR repo, ECS service, ALB host rule, and ACM cert. Secrets live in `capveon/prod/app/practice` (not the operator-glass bundle — different Clerk app).
+
+Build on a machine that has `profiles/private`, then roll:
 
 ```bash
-pnpm cf:build
-pnpm cf:deploy
+# once: populate the secret, then
+chmod +x scripts/deploy-aws.sh
+AWS_PROFILE=capveon ./scripts/deploy-aws.sh
 ```
 
-Bind Hyperdrive for Postgres (session pooler, caching off). Branding `NEXT_PUBLIC_*` at build time.
+`practice.capveon.ai` is a Cloudflare CNAME to the Capveon ALB, proxied, SSL Full (strict) — same as `app.capveon.ai`.
 
-Company buyers go in `profiles/private` on the machine that builds. `write-bundle.ts` snapshots packs into `packages/core/src/bundled-profiles.json` for the Worker and the agent image. Restore the committed empty `[]` file after deploy. Never commit a bundle that includes private YAML.
+Company buyers go in `profiles/private` on the machine that builds. `write-bundle.ts` snapshots packs into `packages/core/src/bundled-profiles.json` inside the image. Restore the committed empty `[]` file if you ran the script on the host. Never commit a bundle that includes private YAML.
 
 ## Agent
 
