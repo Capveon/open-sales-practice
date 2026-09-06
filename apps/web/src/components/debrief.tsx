@@ -126,7 +126,9 @@ export function Debrief({ id }: { id: string }) {
               ? "Grade lands in a few seconds."
               : scoreError
                 ? scoreError
-                : score?.method === "llm"
+                : score?.eloAfter != null
+                  ? `${score.eloDelta != null && score.eloDelta > 0 ? "+" : ""}${score.eloDelta ?? 0} Elo · now ${score.eloAfter} vs ${score.buyerElo} bot`
+                  : score?.method === "llm"
                   ? "Model grade"
                   : score
                     ? "Heuristic grade"

@@ -40,7 +40,7 @@ description: Shown on the roster.
 | `firstLine` | Attitude of the pickup, not a script |
 | `scoring.rubric` | extra dimensions for this persona |
 
-Override personality on the roster (Easy / Typical / Hard-ass) without editing YAML.
+Override personality on the roster (Easy / Typical / Hard-ass) without editing YAML. That sets the buyer's **bot Elo** for the leaderboard.
 
 ## Private overlay
 

@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Range = "today" | "3d" | "7d" | "14d" | "30d" | "all";
-type Sort = "avg" | "calls" | "best" | "recent";
+type Sort = "elo" | "avg" | "calls" | "best" | "recent";
 
 type Row = {
   rank: number;
   name: string;
   calls: number;
+  elo: number;
   avgScore: number | null;
   bestScore: number | null;
   lastAt: number;
@@ -22,6 +23,7 @@ type Tape = {
   buyer: string;
   pack: string;
   score: number;
+  buyerElo?: number;
   at: number;
 };
 
@@ -40,6 +42,7 @@ const RANGES: { id: Range; label: string }[] = [
 ];
 
 const SORTS: { id: Sort; label: string }[] = [
+  { id: "elo", label: "Elo" },
   { id: "avg", label: "Avg score" },
   { id: "calls", label: "Calls" },
   { id: "best", label: "Best" },
@@ -60,7 +63,7 @@ function relTime(at: number) {
 
 export function Leaderboard() {
   const [range, setRange] = useState<Range>("7d");
-  const [sort, setSort] = useState<Sort>("avg");
+  const [sort, setSort] = useState<Sort>("elo");
   const [minCalls, setMinCalls] = useState(1);
   const [pack, setPack] = useState("");
   const [profile, setProfile] = useState("");
@@ -120,8 +123,9 @@ export function Leaderboard() {
           <p className="t-eyebrow">Standings</p>
           <h1 className="t-page-title">Leaderboard</h1>
           <p className="lede">
-            Who is actually getting better. Filter the window, the buyer, the motion. Rank by
-            average, volume, or the last tape that came in.
+            Rated like a chess ladder. Each buyer is a bot with a fixed Elo from how hard they are.
+            A good tape against a hard-ass moves you more than the same tape against an easy one —
+            and one lucky call cannot sit on top of the board.
           </p>
         </div>
       </div>
@@ -206,6 +210,7 @@ export function Leaderboard() {
           <tr>
             <th>#</th>
             <th>Rep</th>
+            <th>{headerBtn("elo", "Elo")}</th>
             <th>{headerBtn("calls", "Calls")}</th>
             <th>{headerBtn("avg", "Avg")}</th>
             <th>{headerBtn("best", "Best")}</th>
@@ -216,7 +221,7 @@ export function Leaderboard() {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={7} className="t-meta">
+              <td colSpan={8} className="t-meta">
                 No scored calls in this window.
               </td>
             </tr>
@@ -225,6 +230,7 @@ export function Leaderboard() {
               <tr key={`${r.rank}-${r.name}`}>
                 <td className="num">{r.rank}</td>
                 <td>{r.name}</td>
+                <td className="num">{r.elo}</td>
                 <td className="num">{r.calls}</td>
                 <td className="num">{r.avgScore ?? "—"}</td>
                 <td className="num">{r.bestScore ?? "—"}</td>
@@ -248,13 +254,14 @@ export function Leaderboard() {
               <th>Rep</th>
               <th>Buyer</th>
               <th>Motion</th>
+              <th>Bot Elo</th>
               <th>Score</th>
             </tr>
           </thead>
           <tbody>
             {tapes.length === 0 ? (
               <tr>
-                <td colSpan={5} className="t-meta">
+                <td colSpan={6} className="t-meta">
                   No tapes yet.
                 </td>
               </tr>
@@ -267,6 +274,7 @@ export function Leaderboard() {
                     <Link href={`/call/${t.id}/debrief`}>{t.buyer}</Link>
                   </td>
                   <td className="t-meta">{t.pack || "—"}</td>
+                  <td className="num">{t.buyerElo ?? "—"}</td>
                   <td className="num">
                     <Link href={`/call/${t.id}/debrief`}>{t.score}</Link>
                   </td>

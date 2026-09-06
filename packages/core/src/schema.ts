@@ -109,6 +109,9 @@ export const CallScoreSchema = z.object({
   coaching: z.array(z.string()),
   betterLine: z.string().optional(),
   method: z.enum(["heuristic", "llm"]),
+  buyerElo: z.number().optional(),
+  eloDelta: z.number().optional(),
+  eloAfter: z.number().optional(),
 });
 
 export type CallScore = z.infer<typeof CallScoreSchema>;

@@ -1,10 +1,11 @@
+import { buyerElo, personalityFromUnknown, replayElo } from "@osp/core";
 import { loadPacks } from "@osp/core/registry";
 import { requireUser } from "@/lib/auth";
 import { asError } from "@/lib/api";
 import { db } from "@/lib/db";
 
 const RANGES = new Set(["today", "3d", "7d", "14d", "30d", "all"]);
-const SORTS = new Set(["avg", "calls", "best", "recent"]);
+const SORTS = new Set(["elo", "avg", "calls", "best", "recent"]);
 
 function sinceMs(range: string): number | null {
   if (range === "all" || !RANGES.has(range)) return null;
@@ -27,12 +28,21 @@ function profileLookup() {
   return map;
 }
 
+function readJson(raw: unknown): unknown {
+  if (typeof raw !== "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
 export async function GET(req: Request) {
   try {
     await requireUser();
     const url = new URL(req.url);
     const range = RANGES.has(url.searchParams.get("range") ?? "") ? (url.searchParams.get("range") as string) : "7d";
-    const sort = SORTS.has(url.searchParams.get("sort") ?? "") ? (url.searchParams.get("sort") as string) : "avg";
+    const sort = SORTS.has(url.searchParams.get("sort") ?? "") ? (url.searchParams.get("sort") as string) : "elo";
     const minCalls = Math.max(1, Math.min(20, Number(url.searchParams.get("minCalls") ?? 1) || 1));
     const pack = url.searchParams.get("pack")?.trim() || "";
     const profileId = url.searchParams.get("profile")?.trim() || "";
@@ -72,57 +82,82 @@ export async function GET(req: Request) {
     }
     const whereSql = where.join(" AND ");
 
-    const standings = await db().execute({
-      sql: `SELECT u.id, u.name,
-                   COUNT(c.id) AS call_count,
-                   AVG(c.overall) AS avg_score,
-                   MAX(c.overall) AS best_score,
-                   MAX(COALESCE(c.ended_at, c.started_at)) AS last_at,
-                   (SELECT c2.profile_id FROM calls c2
-                     WHERE c2.user_id = u.id AND c2.status = 'scored' AND c2.overall IS NOT NULL
-                     ORDER BY COALESCE(c2.ended_at, c2.started_at) DESC LIMIT 1) AS last_profile
-            FROM users u
-            INNER JOIN calls c ON c.user_id = u.id AND ${whereSql}
-            GROUP BY u.id
-            HAVING COUNT(c.id) >= ?
-            ORDER BY u.name ASC`,
-      args: [...args, minCalls],
+    const games = await db().execute({
+      sql: `SELECT u.id, u.name, c.overall, c.personality_json, c.profile_id,
+                   COALESCE(c.ended_at, c.started_at) AS at
+            FROM calls c
+            INNER JOIN users u ON u.id = c.user_id
+            WHERE ${whereSql}
+            ORDER BY COALESCE(c.ended_at, c.started_at) ASC, c.id ASC`,
+      args,
     });
 
-    const order = (a: Standing, b: Standing) => {
-      if (sort === "calls") return b.calls - a.calls || (b.avgScore ?? 0) - (a.avgScore ?? 0);
-      if (sort === "best") return (b.bestScore ?? 0) - (a.bestScore ?? 0) || b.calls - a.calls;
-      if (sort === "recent") return b.lastAt - a.lastAt;
-      return (b.avgScore ?? 0) - (a.avgScore ?? 0) || b.calls - a.calls;
+    type Bucket = {
+      userId: string;
+      name: string;
+      games: { overall: number; personality: ReturnType<typeof personalityFromUnknown> }[];
+      lastAt: number;
+      lastProfile: string | null;
     };
+    const byUser = new Map<string, Bucket>();
+    for (const row of games.rows) {
+      const userId = String(row.id);
+      let bucket = byUser.get(userId);
+      if (!bucket) {
+        bucket = { userId, name: String(row.name), games: [], lastAt: 0, lastProfile: null };
+        byUser.set(userId, bucket);
+      }
+      const overall = Number(row.overall);
+      bucket.games.push({
+        overall,
+        personality: personalityFromUnknown(readJson(row.personality_json)),
+      });
+      const at = Number(row.at ?? 0);
+      bucket.lastAt = at;
+      bucket.lastProfile = row.profile_id == null ? null : String(row.profile_id);
+    }
 
     type Standing = {
       userId: string;
       name: string;
       calls: number;
+      elo: number;
       avgScore: number | null;
       bestScore: number | null;
       lastAt: number;
       lastBuyer: string | null;
     };
 
-    let rows: Standing[] = standings.rows.map((row) => {
-      const lastProfile = row.last_profile == null ? null : String(row.last_profile);
-      return {
-        userId: String(row.id),
-        name: String(row.name),
-        calls: Number(row.call_count ?? 0),
-        avgScore: row.avg_score == null ? null : Math.round(Number(row.avg_score) * 10) / 10,
-        bestScore: row.best_score == null ? null : Math.round(Number(row.best_score) * 10) / 10,
-        lastAt: Number(row.last_at ?? 0),
-        lastBuyer: lastProfile ? (lookup.get(lastProfile)?.name ?? lastProfile) : null,
-      };
-    });
+    let rows: Standing[] = [...byUser.values()]
+      .filter((bucket) => bucket.games.length >= minCalls)
+      .map((bucket) => {
+        const scores = bucket.games.map((g) => g.overall);
+        const lastProfile = bucket.lastProfile;
+        return {
+          userId: bucket.userId,
+          name: bucket.name,
+          calls: bucket.games.length,
+          elo: replayElo(bucket.games),
+          avgScore: Math.round((scores.reduce((n, s) => n + s, 0) / scores.length) * 10) / 10,
+          bestScore: Math.round(Math.max(...scores) * 10) / 10,
+          lastAt: bucket.lastAt,
+          lastBuyer: lastProfile ? (lookup.get(lastProfile)?.name ?? lastProfile) : null,
+        };
+      });
     if (q) rows = rows.filter((r) => r.name.toLowerCase().includes(q));
+
+    const order = (a: Standing, b: Standing) => {
+      if (sort === "calls") return b.calls - a.calls || b.elo - a.elo;
+      if (sort === "best") return (b.bestScore ?? 0) - (a.bestScore ?? 0) || b.elo - a.elo;
+      if (sort === "recent") return b.lastAt - a.lastAt;
+      if (sort === "avg") return (b.avgScore ?? 0) - (a.avgScore ?? 0) || b.elo - a.elo;
+      return b.elo - a.elo || b.calls - a.calls;
+    };
     rows.sort(order);
 
     const tapes = await db().execute({
-      sql: `SELECT c.id, u.name AS rep, c.profile_id, c.overall, COALESCE(c.ended_at, c.started_at) AS at
+      sql: `SELECT c.id, u.name AS rep, c.profile_id, c.overall, c.personality_json,
+                   COALESCE(c.ended_at, c.started_at) AS at
             FROM calls c
             INNER JOIN users u ON u.id = c.user_id
             WHERE ${whereSql}
@@ -151,6 +186,7 @@ export async function GET(req: Request) {
             buyer: meta?.name ?? pid,
             pack: meta?.packLabel ?? "",
             score: Number(row.overall),
+            buyerElo: buyerElo(personalityFromUnknown(readJson(row.personality_json))),
             at: Number(row.at),
           };
         }),

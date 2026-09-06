@@ -22,7 +22,7 @@ You need Node 20+, pnpm 9, Clerk, OpenAI, and LiveKit.
 | Live phone | LiveKit WebRTC + OpenAI Realtime. Full transcript on the handset and in debrief. |
 | Agent | `apps/agent`. Deploy with `lk agent deploy --skip-sdk-check`. |
 | Debrief | Score plus the whole tape. |
-| Leaderboard | Filter tapes. Click one to open it. |
+| Leaderboard | Elo vs the buyer-bot. Filter tapes. Click one to open it. |
 
 Clerk is required. Local uses a Development instance. Production uses Production.
 

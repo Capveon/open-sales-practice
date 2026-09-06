@@ -1,7 +1,10 @@
 import {
+  buyerElo,
   mergeTranscripts,
   parseTranscriptJson,
-  type Personality,
+  personalityFromUnknown,
+  playCall,
+  replayElo,
   type TranscriptTurn,
 } from "@osp/core";
 import { getProfile } from "@osp/core/registry";
@@ -10,6 +13,15 @@ import { scoreCall } from "@/lib/score";
 import { serializeCall } from "@/lib/serialize-call";
 
 const scoreJobs = new Map<string, Promise<CallRow>>();
+
+function readJson(raw: unknown): unknown {
+  if (typeof raw !== "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
 
 async function loadOwnedCall(id: string, userId: string) {
   const result = await db().execute({
@@ -60,9 +72,28 @@ async function runScore(id: string, userId: string): Promise<CallRow> {
   if (row.status === "scored" && row.score_json) return row;
 
   const profile = getProfile(row.profile_id);
-  const personality = JSON.parse(row.personality_json) as Personality;
+  const personality = personalityFromUnknown(readJson(row.personality_json));
   const turns = parseTranscriptJson(row.transcript_json);
-  const score = await scoreCall(profile, turns, personality);
+  const base = await scoreCall(profile, turns, personality);
+  const prior = await db().execute({
+    sql: `SELECT overall, personality_json FROM calls
+          WHERE user_id = ? AND status = 'scored' AND overall IS NOT NULL AND id != ?
+          ORDER BY COALESCE(ended_at, started_at) ASC, id ASC`,
+    args: [userId, id],
+  });
+  const rating = replayElo(
+    prior.rows.map((game) => ({
+      overall: Number(game.overall),
+      personality: personalityFromUnknown(readJson(game.personality_json)),
+    })),
+  );
+  const elo = playCall(rating, buyerElo(personality), base.overall);
+  const score = {
+    ...base,
+    buyerElo: elo.buyerElo,
+    eloDelta: elo.delta,
+    eloAfter: elo.after,
+  };
   const ended_at = row.ended_at ?? Date.now();
 
   await db().execute({

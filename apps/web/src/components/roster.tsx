@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PERSONALITY_FIELDS } from "@/lib/personality";
-import type { Personality } from "@osp/core";
+import { buyerElo, type Personality } from "@osp/core";
 
 type ProfileCard = {
   id: string;
@@ -101,8 +101,8 @@ export function Roster() {
           <p className="t-eyebrow">Roster</p>
           <h1 className="t-page-title">Practice a live call</h1>
           <p className="lede">
-            Pick a buyer. Tweak how hard they are. Same job every time: earn a next step without
-            pitching a product.
+            Pick a buyer. Tweak how hard they are — that sets their Elo, like a chess bot.
+            Same job every time: earn a next step without pitching a product.
           </p>
         </div>
       </div>
@@ -144,6 +144,9 @@ export function Roster() {
               {selected.title} · {selected.organization}
             </p>
             <p className="brief">{selected.repBrief}</p>
+            <p className="t-meta" style={{ marginTop: 8 }}>
+              Bot Elo {buyerElo(personality)}
+            </p>
             <div className="chips">
               {selected.vernacular.slice(0, 8).map((v) => (
                 <span key={v} className="chip">
@@ -160,6 +163,9 @@ export function Roster() {
                   onClick={() => setPersonality({ ...selected.personality, ...p.patch })}
                 >
                   {p.label}
+                  <span className="t-meta" style={{ marginLeft: 6 }}>
+                    {buyerElo({ ...selected.personality, ...p.patch })}
+                  </span>
                 </button>
               ))}
             </div>
