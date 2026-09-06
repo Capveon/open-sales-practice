@@ -66,7 +66,9 @@ export function Debrief({ id }: { id: string }) {
       }
       setScoring(true);
       const scored = await fetch(`/api/calls/${id}/score`, { method: "POST" });
-      const scoredJson = await readJson<{ call?: Payload }>(scored).catch(() => ({} as { call?: Payload }));
+      const scoredJson = await readJson<{ call?: Payload; error?: string }>(scored).catch(
+        () => ({} as { call?: Payload; error?: string }),
+      );
       if (!alive) return;
       if (scored.ok && scoredJson.call) {
         setCall(scoredJson.call);
