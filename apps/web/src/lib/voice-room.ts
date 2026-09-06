@@ -32,7 +32,7 @@ type TranscriptionHandler = {
   onRemoteHangup: () => void;
 };
 
-function roleFor(identity: string, localIdentity: string): TranscriptTurn["role"] {
+function roleFor(identity: string, localIdentity: string): "seller" | "buyer" {
   return identity === localIdentity || identity.startsWith("rep-") ? "seller" : "buyer";
 }
 
@@ -61,12 +61,22 @@ async function consumeTranscription(
   reader: TextStreamReader,
   identity: string,
   localIdentity: string,
+  openSegment: Partial<Record<"seller" | "buyer", string>>,
   handlers: TranscriptionHandler,
 ) {
   const attrs = reader.info.attributes ?? {};
-  const segmentId = attrs["lk.segment_id"] || `${identity}:${reader.info.id}`;
   const role = roleFor(identity, localIdentity);
   const finalFromAttrs = isFinalStream(attrs);
+  const fromLk = attrs["lk.segment_id"];
+  const segmentId = fromLk || openSegment[role] || `${identity}:${reader.info.id}`;
+  if (!fromLk) {
+    if (finalFromAttrs) delete openSegment[role];
+    else openSegment[role] = segmentId;
+  } else if (finalFromAttrs) {
+    delete openSegment[role];
+  } else {
+    openSegment[role] = fromLk;
+  }
 
   if (finalFromAttrs) {
     const text = parseTranscriptionText(await reader.readAll());
@@ -81,8 +91,6 @@ async function consumeTranscription(
     const text = parseTranscriptionText(raw);
     if (text) handlers.onCaption({ role, text, segmentId, final: false });
   }
-  const text = parseTranscriptionText(raw);
-  if (text) handlers.onCaption({ role, text, segmentId, final: true });
 }
 
 async function consumeTape(reader: TextStreamReader, handlers: TranscriptionHandler) {
@@ -105,11 +113,16 @@ export async function connectVoiceRoom(
     },
   });
 
+  const openSegment: Partial<Record<"seller" | "buyer", string>> = {};
   room.registerTextStreamHandler("lk.transcription", (reader, participant) => {
     const identity = participant.identity || "";
-    void consumeTranscription(reader, identity, room.localParticipant.identity, handlers).catch(
-      () => undefined,
-    );
+    void consumeTranscription(
+      reader,
+      identity,
+      room.localParticipant.identity,
+      openSegment,
+      handlers,
+    ).catch(() => undefined);
   });
   room.registerTextStreamHandler(TRANSCRIPT_TOPIC, (reader) => {
     void consumeTape(reader, handlers).catch(() => undefined);

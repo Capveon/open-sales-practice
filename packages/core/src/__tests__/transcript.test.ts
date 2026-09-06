@@ -56,7 +56,7 @@ describe("segment upsert", () => {
     expect(next[0]?.live).toBe(false);
   });
 
-  it("appends a new utterance", () => {
+  it("keeps a new speaker on their own line", () => {
     const first = upsertSegment([], {
       role: "buyer",
       text: "Yeah",
@@ -71,6 +71,24 @@ describe("segment upsert", () => {
     });
     expect(commitLiveLines(next).map((t) => t.role)).toEqual(["buyer", "seller"]);
   });
+
+  it("collapses growing STT partials into one line", () => {
+    const tape = [
+      { role: "seller" as const, text: "Hey", at: 1, segmentId: "a" },
+      { role: "seller" as const, text: "Hey Marcus, how", at: 2, segmentId: "b" },
+      { role: "seller" as const, text: "Hey Marcus, how's your day going?", at: 3, segmentId: "c" },
+    ].reduce((turns, line) => upsertSegment(turns, line), [] as ReturnType<typeof upsertSegment>);
+    expect(commitLiveLines(tape).map((t) => t.text)).toEqual(["Hey Marcus, how's your day going?"]);
+  });
+
+  it("collapses a split opening plus the combined replay", () => {
+    const tape = [
+      { role: "buyer" as const, text: "Marcus", at: 1, segmentId: "1" },
+      { role: "buyer" as const, text: "Make it quick.", at: 2, segmentId: "2" },
+      { role: "buyer" as const, text: "Marcus. Make it quick.", at: 3, segmentId: "3" },
+    ].reduce((turns, line) => upsertSegment(turns, line), [] as ReturnType<typeof upsertSegment>);
+    expect(commitLiveLines(tape).map((t) => t.text)).toEqual(["Marcus. Make it quick."]);
+  });
 });
 
 describe("mergeTranscripts", () => {
@@ -81,5 +99,35 @@ describe("mergeTranscripts", () => {
     ];
     const latestOnly = [{ role: "seller" as const, text: "Who ranks the CIP?", at: 2 }];
     expect(mergeTranscripts(latestOnly, live)).toHaveLength(2);
+  });
+
+  it("rebuilds the Marcus call as three turns", () => {
+    const merged = mergeTranscripts([
+      { role: "buyer", text: "Marcus", at: 1 },
+      { role: "buyer", text: "Make it quick.", at: 2 },
+      { role: "buyer", text: "Marcus", at: 3 },
+      { role: "buyer", text: "Make it quick", at: 4 },
+      { role: "buyer", text: "Marcus. Make it quick.", at: 5 },
+      { role: "seller", text: "Hey", at: 6 },
+      { role: "seller", text: "Hey Marcus, how", at: 7 },
+      { role: "seller", text: "Hey Marcus, how's your day going?", at: 8 },
+      { role: "buyer", text: "Don't have time for that. What do you need?", at: 9 },
+    ]);
+    expect(merged.map((t) => `${t.role}:${t.text}`)).toEqual([
+      "buyer:Marcus. Make it quick.",
+      "seller:Hey Marcus, how's your day going?",
+      "buyer:Don't have time for that. What do you need?",
+    ]);
+  });
+
+  it("does not keep STT prefixes after merge", () => {
+    const merged = mergeTranscripts(
+      [
+        { role: "seller", text: "Hey", at: 1 },
+        { role: "seller", text: "Hey Marcus, how", at: 2 },
+      ],
+      [{ role: "seller", text: "Hey Marcus, how's your day going?", at: 3 }],
+    );
+    expect(merged.map((t) => t.text)).toEqual(["Hey Marcus, how's your day going?"]);
   });
 });
