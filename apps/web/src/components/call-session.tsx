@@ -129,10 +129,10 @@ export function CallSession({ id }: { id: string }) {
         call?: CallPayload;
         livekit?: LiveKitCreds | null;
       }>(loaded);
-      if (!loaded.ok) throw new Error(json.error ?? "Missing call");
+      if (!loaded.ok || !json.call) throw new Error(json.error ?? "Missing call");
       if (!alive) return;
       if (typeof json.callMaxSeconds === "number") setMaxSeconds(json.callMaxSeconds);
-      const c = json.call as CallPayload;
+      const c = json.call;
       setCall(c);
       const seeded = (c.transcript ?? []).map((turn, index) => ({
         ...turn,
