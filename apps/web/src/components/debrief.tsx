@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { CallScore, TranscriptTurn } from "@osp/core";
+import { readJson } from "@/lib/http";
 
 type Payload = {
   id: string;
@@ -37,13 +38,17 @@ export function Debrief({ id }: { id: string }) {
     const loadClips = async () => {
       const clipRes = await fetch(`/api/calls/${id}/clips`);
       if (!clipRes.ok) return;
-      const clipJson = await clipRes.json();
+      const clipJson = await readJson<{ clips?: Clip[] }>(clipRes);
       if (alive) setClips(clipJson.clips ?? []);
     };
 
     const load = async () => {
       const loaded = await fetch(`/api/calls/${id}`);
-      const json = await loaded.json();
+      const json = await readJson<{
+        error?: string;
+        call?: Payload;
+        mine?: boolean;
+      }>(loaded);
       if (!loaded.ok) throw new Error(json.error ?? "Missing");
       if (!alive) return;
       setCall(json.call);
@@ -60,7 +65,7 @@ export function Debrief({ id }: { id: string }) {
       }
       setScoring(true);
       const scored = await fetch(`/api/calls/${id}/score`, { method: "POST" });
-      const scoredJson = await scored.json().catch(() => ({}));
+      const scoredJson = await readJson<{ call?: Payload }>(scored).catch(() => ({} as { call?: Payload }));
       if (!alive) return;
       if (scored.ok && scoredJson.call) {
         setCall(scoredJson.call);

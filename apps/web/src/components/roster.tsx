@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PERSONALITY_FIELDS } from "@/lib/personality";
 import { buyerElo, type Personality } from "@osp/core";
+import { readJson } from "@/lib/http";
 
 type ProfileCard = {
   id: string;
@@ -35,9 +36,9 @@ export function Roster() {
   useEffect(() => {
     fetch("/api/profiles")
       .then(async (r) => {
-        const json = await r.json();
+        const json = await readJson<{ error?: string; packs?: Pack[] }>(r);
         if (!r.ok) throw new Error(json.error ?? "Failed to load");
-        setPacks(json.packs);
+        setPacks(json.packs ?? []);
       })
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -66,9 +67,9 @@ export function Roster() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profileId: selected.id, personality }),
     });
-    const json = await res.json();
+    const json = await readJson<{ error?: string; call?: { id: string }; livekit?: unknown }>(res);
     setStarting(false);
-    if (!res.ok) {
+    if (!res.ok || !json.call?.id) {
       setError(json.error ?? "Could not start call");
       return;
     }

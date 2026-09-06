@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { readJson } from "@/lib/http";
 
 type Range = "today" | "3d" | "7d" | "14d" | "30d" | "all";
 type Sort = "elo" | "avg" | "calls" | "best" | "recent";
@@ -88,7 +89,7 @@ export function Leaderboard() {
     if (profile) params.set("profile", profile);
     if (q) params.set("q", q);
     fetch(`/api/leaderboard?${params}`)
-      .then((r) => r.json())
+      .then((r) => readJson<{ rows?: Row[]; tapes?: Tape[]; filters?: Filters }>(r))
       .then((json) => {
         setRows(json.rows ?? []);
         setTapes(json.tapes ?? []);

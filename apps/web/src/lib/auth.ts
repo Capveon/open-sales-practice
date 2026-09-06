@@ -1,17 +1,18 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { HttpError } from "./api";
 import { db, migrate, type UserRow } from "./db";
 
 export async function requireUser(): Promise<UserRow> {
   await migrate();
   const { userId } = await auth();
   if (!userId) {
-    throw new Response("Unauthorized", { status: 401 });
+    throw new HttpError("Unauthorized", 401);
   }
   const clerkUser = await currentUser();
   const email = clerkUser?.primaryEmailAddress?.emailAddress ?? "";
   const domain = process.env.OSP_ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase();
   if (domain && !email.toLowerCase().endsWith(`@${domain}`)) {
-    throw new Response("This practice app is restricted to company accounts.", { status: 403 });
+    throw new HttpError("This practice app is restricted to company accounts.", 403);
   }
   const name =
     clerkUser?.fullName || clerkUser?.firstName || email.split("@")[0] || "Rep";

@@ -1,7 +1,11 @@
-import { createClient, type Client, type InValue } from "@libsql/client";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import postgres, { type Sql } from "postgres";
+
+type SqliteClient = {
+  execute: (q: { sql: string; args?: unknown[] }) => Promise<{ rows: unknown[] }>;
+  executeMultiple: (sql: string) => Promise<unknown>;
+};
 
 export type UserRow = {
   id: string;
@@ -161,12 +165,13 @@ function stripSslMode(url: string): string {
   }
 }
 
-let sqlite: Client | null = null;
+let sqlite: SqliteClient | null = null;
 let pg: Sql | null = null;
 let pgAdmin: Sql | null = null;
 
-function sqliteClient(url: string): Client {
+async function sqliteClient(url: string): Promise<SqliteClient> {
   if (sqlite) return sqlite;
+  const { createClient } = await import("@libsql/client");
   const file = resolve(process.cwd(), url.slice("file:".length).replace(/^\.\//, ""));
   mkdirSync(dirname(file), { recursive: true });
   sqlite = createClient({ url: `file:${file}` });
@@ -194,9 +199,9 @@ export async function execute(query: { sql: string; args?: unknown[] }): Promise
   const sql = qualify(query.sql);
   const args = (query.args ?? []).map((a) => (a instanceof Uint8Array ? Buffer.from(a) : a));
   if (!usesPostgres(url)) {
-    const result = await sqliteClient(url).execute({
+    const result = await (await sqliteClient(url)).execute({
       sql,
-      args: args as InValue[],
+      args,
     });
     return { rows: result.rows as unknown as Record<string, unknown>[] };
   }
@@ -266,7 +271,7 @@ let postgresMigrated = false;
 export async function migrate() {
   const url = await resolveRuntimeUrl();
   if (!usesPostgres(url)) {
-    await sqliteClient(url).executeMultiple(SQLITE_DDL);
+    await (await sqliteClient(url)).executeMultiple(SQLITE_DDL);
     return;
   }
   if (process.env.OSP_SKIP_MIGRATE === "1" || postgresMigrated) return;

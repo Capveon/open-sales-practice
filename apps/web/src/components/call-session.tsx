@@ -17,6 +17,7 @@ import {
   type AgentCue,
   type LiveKitCreds,
 } from "@/lib/voice-room";
+import { readJson } from "@/lib/http";
 
 type CallPayload = {
   id: string;
@@ -122,7 +123,12 @@ export function CallSession({ id }: { id: string }) {
 
     const run = async () => {
       const loaded = await fetch(`/api/calls/${id}`, { signal: ac.signal });
-      const json = await loaded.json();
+      const json = await readJson<{
+        error?: string;
+        callMaxSeconds?: number;
+        call?: CallPayload;
+        livekit?: LiveKitCreds | null;
+      }>(loaded);
       if (!loaded.ok) throw new Error(json.error ?? "Missing call");
       if (!alive) return;
       if (typeof json.callMaxSeconds === "number") setMaxSeconds(json.callMaxSeconds);
