@@ -51,6 +51,7 @@ export function Debrief({ id }: { id: string }) {
       }>(loaded);
       if (!loaded.ok) throw new Error(json.error ?? "Missing");
       if (!alive) return;
+      if (!json.call) throw new Error(json.error ?? "Missing");
       setCall(json.call);
       setMine(json.mine !== false);
       void loadClips();
