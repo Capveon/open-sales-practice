@@ -174,7 +174,7 @@ async function sqliteClient(url: string): Promise<SqliteClient> {
   const { createClient } = await import("@libsql/client");
   const file = resolve(process.cwd(), url.slice("file:".length).replace(/^\.\//, ""));
   mkdirSync(dirname(file), { recursive: true });
-  sqlite = createClient({ url: `file:${file}` });
+  sqlite = createClient({ url: `file:${file}` }) as unknown as SqliteClient;
   return sqlite;
 }
 
